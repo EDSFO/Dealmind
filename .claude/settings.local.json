@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(bmad:bmm:workflows:workflow-init)",
+      "Bash(ls:*)",
+      "Skill(bmad:bmm:workflows:create-architecture)",
+      "WebSearch",
+      "Skill(bmad:bmm:workflows:create-epics-and-stories)",
+      "Skill(bmad:bmm:workflows:sprint-planning)",
+      "Bash(if:*)",
+      "Bash(then echo \"EXISTS\")",
+      "Bash(else echo \"NOT_FOUND\")",
+      "Bash(fi)",
+      "Skill(bmad:bmm:workflows:create-story)",
+      "Skill(bmad:bmm:workflows:dev-story)",
+      "Bash(npx create-t3-app:*)",
+      "Bash(cat:*)",
+      "Bash(timeout 30 npm run dev:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(ping:*)",
+      "Bash(timeout 5 bash -c 'cat < /dev/null > /dev/tcp/db.njkqdqpixklghnptolmj.supabase.co/5432')",
+      "Bash(curl:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(timeout:*)",
+      "Bash(npm install:*)"
+    ]
+  }
+}
