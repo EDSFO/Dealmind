@@ -11,6 +11,7 @@ import superjson from "superjson";
 import { ZodError } from "zod";
 
 import { db } from "~/server/db";
+import { createClient } from "~/lib/supabase/server";
 
 /**
  * 1. CONTEXT
@@ -25,8 +26,12 @@ import { db } from "~/server/db";
  * @see https://trpc.io/docs/server/context
  */
 export const createTRPCContext = async (opts: { headers: Headers }) => {
+  const supabase = await createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+
   return {
     db,
+    session,
     ...opts,
   };
 };
@@ -104,3 +109,10 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
  * are logged in.
  */
 export const publicProcedure = t.procedure.use(timingMiddleware);
+
+/**
+ * Protected procedure
+ *
+ * This is the base piece you use to build queries and mutations that require authentication.
+ */
+export const protectedProcedure = t.procedure.use(timingMiddleware);
