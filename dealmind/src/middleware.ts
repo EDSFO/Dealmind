@@ -2,14 +2,30 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
+  let supabaseResponse = NextResponse.next({
+    request: req,
+  })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      req,
-      res,
+      cookies: {
+        getAll() {
+          return req.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            req.cookies.set(name, value)
+          )
+          supabaseResponse = NextResponse.next({
+            request: req,
+          })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          )
+        },
+      },
     }
   )
 
@@ -20,7 +36,9 @@ export async function middleware(req: NextRequest) {
   // Protected routes - require authentication
   const protectedRoutes = ['/dashboard', '/admin', '/conversations', '/team']
   const isProtectedRoute = protectedRoutes.some(route => req.nextUrl.pathname.startsWith(route))
-  const isAuthRoute = req.nextUrl.pathname.startsWith('/login') || req.nextUrl.pathname.startsWith('/auth')
+  const isAuthRoute = req.nextUrl.pathname.startsWith('/login') ||
+    req.nextUrl.pathname.startsWith('/register') ||
+    req.nextUrl.pathname.startsWith('/auth')
 
   // Redirect unauthenticated users from protected routes
   if (!session && isProtectedRoute) {
@@ -36,11 +54,11 @@ export async function middleware(req: NextRequest) {
   if (session?.user) {
     const tenantId = session.user.user_metadata.tenant_id
     const role = session.user.user_metadata.role
-    if (tenantId) res.headers.set('x-tenant-id', tenantId)
-    if (role) res.headers.set('x-user-role', role)
+    if (tenantId) supabaseResponse.headers.set('x-tenant-id', tenantId)
+    if (role) supabaseResponse.headers.set('x-user-role', role)
   }
 
-  return res
+  return supabaseResponse
 }
 
 export const config = {
