@@ -1,27 +1,19 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { ensureUser } from "~/server/lib/user";
 
 export const companyRouter = createTRPCRouter({
   // Listar empresas do tenant
   list: protectedProcedure.query(async ({ ctx }) => {
     const { db, session } = ctx;
 
-    // Se não tem sessão, retorna lista vazia
     if (!session?.user) {
       return [];
     }
 
-    // Buscar tenant do usuário
-    const user = await db.user.findUnique({
-      where: { id: session.user.id },
-      select: { tenantId: true },
-    });
-
-    // Se usuário não existe no banco, retorna lista vazia
-    if (!user) {
-      return [];
-    }
+    const user = await ensureUser(db, session);
+    if (!user?.tenantId) return [];
 
     return db.company.findMany({
       where: { tenantId: user.tenantId },
@@ -51,16 +43,12 @@ export const companyRouter = createTRPCRouter({
         });
       }
 
-      // Buscar tenant do usuário
-      const user = await db.user.findUnique({
-        where: { id: session.user.id },
-        select: { tenantId: true },
-      });
+      const user = await ensureUser(db, session);
 
-      if (!user) {
+      if (!user?.tenantId) {
         throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Usuário não encontrado. Complete o cadastro primeiro.",
+          code: "BAD_REQUEST",
+          message: "Usuário não possui um tenant associado",
         });
       }
 
@@ -90,18 +78,7 @@ export const companyRouter = createTRPCRouter({
         });
       }
 
-      // Buscar tenant do usuário
-      const user = await db.user.findUnique({
-        where: { id: session.user.id },
-        select: { tenantId: true },
-      });
-
-      if (!user) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Usuário não encontrado",
-        });
-      }
+      const user = await ensureUser(db, session);
 
       // Verificar se empresa pertence ao tenant
       const company = await db.company.findFirst({
@@ -137,18 +114,7 @@ export const companyRouter = createTRPCRouter({
         });
       }
 
-      // Buscar tenant do usuário
-      const user = await db.user.findUnique({
-        where: { id: session.user.id },
-        select: { tenantId: true },
-      });
-
-      if (!user) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Usuário não encontrado",
-        });
-      }
+      const user = await ensureUser(db, session);
 
       // Verificar se empresa pertence ao tenant
       const company = await db.company.findFirst({
@@ -180,14 +146,8 @@ export const companyRouter = createTRPCRouter({
         return null;
       }
 
-      const user = await db.user.findUnique({
-        where: { id: session.user.id },
-        select: { tenantId: true },
-      });
-
-      if (!user) {
-        return null;
-      }
+      const user = await ensureUser(db, session);
+      if (!user?.tenantId) return null;
 
       return db.company.findFirst({
         where: {

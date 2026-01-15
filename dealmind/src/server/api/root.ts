@@ -2,6 +2,10 @@ import { appRouter as exampleRouter } from "~/server/api/routers/example";
 import { companyRouter } from "~/server/api/routers/company";
 import { userRouter } from "~/server/api/routers/user";
 import { inviteRouter } from "~/server/api/routers/invite";
+import { dealRouter } from "~/server/api/routers/deal";
+import { contactRouter } from "~/server/api/routers/contact";
+import { conversationRouter } from "~/server/api/routers/conversation";
+import { activityRouter } from "~/server/api/routers/activity";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -14,6 +18,10 @@ export const appRouter = createTRPCRouter({
   company: companyRouter,
   user: userRouter,
   invite: inviteRouter,
+  deal: dealRouter,
+  contact: contactRouter,
+  conversation: conversationRouter,
+  activity: activityRouter,
 });
 
 // export type definition of API

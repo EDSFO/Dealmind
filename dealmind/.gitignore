@@ -44,3 +44,22 @@ yarn-error.log*
 
 # idea files
 .ideagenerated/
+# --- DealMind / Prisma generated (evitar arquivos gerados e engines no Git) ---
+dealmind/generated/prisma/
+dealmind/generated/prisma/**
+
+# Prisma engines / temporários (Windows)
+*.dll.node
+*.tmp*
+query_engine-*.dll.node
+libquery_engine-*.dll.node
+
+# Arquivos "proibidos" no Windows (aparecendo como untracked)
+nul
+NUL
+dealmind/nul
+dealmind/generated/prisma/nul
+
+# MCP / Claude local
+.mcp.json
+.claude/settings.local.json

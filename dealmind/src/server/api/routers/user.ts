@@ -40,15 +40,13 @@ export const userRouter = createTRPCRouter({
 
     return db.user.findMany({
       where: { tenantId: currentUser.tenantId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { id: "desc" },
       select: {
         id: true,
         email: true,
         name: true,
         role: true,
-        avatarUrl: true,
-        createdAt: true,
-        updatedAt: true,
+        companyId: true,
       },
     });
   }),
@@ -87,9 +85,7 @@ export const userRouter = createTRPCRouter({
           email: true,
           name: true,
           role: true,
-          avatarUrl: true,
-          createdAt: true,
-          updatedAt: true,
+          companyId: true,
         },
       });
     }),
