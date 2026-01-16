@@ -37,17 +37,18 @@ model Company {
 }
 
 model User {
-  id         String     @id @default(uuid())
-  tenantId   String     @map("tenant_id")
-  companyId  String?    @map("company_id")
-  email      String
-  name       String
-  role       UserRole   @default(VENDEDOR)
-  deletedAt  DateTime?  @map("deleted_at")
-  activities Activity[]
-  deals      Deal[]
-  company    Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id            String         @id @default(uuid())
+  tenantId      String         @map("tenant_id")
+  companyId     String?        @map("company_id")
+  email         String
+  name          String
+  role          UserRole       @default(VENDEDOR)
+  deletedAt     DateTime?      @map("deleted_at")
+  activities    Activity[]
+  conversations Conversation[]
+  deals         Deal[]
+  company       Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -124,21 +125,34 @@ model Deal {
 }
 
 model Conversation {
-  id        String    @id @default(uuid())
-  tenantId  String    @map("tenant_id")
-  dealId    String?   @map("deal_id")
-  contactId String?   @map("contact_id")
-  subject   String?
-  status    String    @default("open")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  deal      Deal?     @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  messages  Message[]
+  id                String            @id @default(uuid())
+  tenantId          String            @map("tenant_id")
+  userId            String            @map("user_id")
+  dealId            String?           @map("deal_id")
+  contactId         String?           @map("contact_id")
+  source            ConversationSource @default(MANUAL)
+  transcriptionText String?           @map("transcription_text")
+  participants      Json?
+  conversationDate  DateTime?         @map("conversation_date")
+  processingStatus  ProcessingStatus  @default(PENDING)
+  errorReason       String?           @map("error_reason")
+  externalId        String?           @map("external_id")
+  metadata          Json?
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  contact           Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal              Deal?             @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user              User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  messages          Message[]
+  insight           Insight?
 
   @@index([tenantId])
+  @@index([userId])
   @@index([dealId])
+  @@index([contactId])
+  @@index([processingStatus])
+  @@index([conversationDate])
   @@map("conversations")
 }
 
@@ -180,6 +194,25 @@ model Activity {
   @@map("activities")
 }
 
+model Insight {
+  id             String       @id @default(uuid())
+  conversationId String       @unique @map("conversation_id")
+  interests      Json?
+  objections     Json?
+  commitments    Json?
+  progressSignals Json?       @map("progress_signals")
+  riskSignals    Json?        @map("risk_signals")
+  nextActions    Json?        @map("next_actions")
+  summary        String?
+  metadata       Json?
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("insights")
+}
+
 enum UserRole {
   VENDEDOR
   LIDER
@@ -215,4 +248,17 @@ enum TaskStatus {
   IN_PROGRESS
   COMPLETED
   CANCELLED
+}
+
+enum ConversationSource {
+  FIREFLIES
+  WHATSAPP
+  MANUAL
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }

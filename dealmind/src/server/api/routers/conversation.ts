@@ -4,6 +4,8 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { ensureUser } from "~/server/lib/user";
 
 const MessageType = z.enum(["NOTE", "EMAIL", "CALL", "MEETING", "WHATSAPP"]);
+const ConversationSource = z.enum(["FIREFLIES", "WHATSAPP", "MANUAL"]);
+const ProcessingStatus = z.enum(["PENDING", "PROCESSING", "COMPLETED", "FAILED"]);
 
 export const conversationRouter = createTRPCRouter({
   // Listar conversas do tenant
@@ -103,14 +105,16 @@ export const conversationRouter = createTRPCRouter({
       });
     }),
 
-  // Criar nova conversa
-  create: protectedProcedure
+  // Criar conversa manual com transcrição
+  createManual: protectedProcedure
     .input(
       z.object({
         dealId: z.string().optional(),
         contactId: z.string().optional(),
+        transcriptionText: z.string().min(1, "Transcrição é obrigatória"),
+        participants: z.array(z.string()).optional(),
+        conversationDate: z.string().or(z.date()).optional(),
         subject: z.string().optional(),
-        status: z.string().default("open"),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -125,6 +129,7 @@ export const conversationRouter = createTRPCRouter({
 
       const currentUser = await ensureUser(db, session);
       const tenantId = currentUser.tenantId;
+      const userId = currentUser.id;
 
       // Se dealId fornecido, verificar se pertence ao tenant
       if (input.dealId) {
@@ -160,43 +165,43 @@ export const conversationRouter = createTRPCRouter({
         }
       }
 
-      return db.conversation.create({
+      // Criar conversa com status PENDING para processamento
+      const conversation = await db.conversation.create({
         data: {
-          tenantId: tenantId,
-          ...input,
+          tenantId,
+          userId,
+          dealId: input.dealId,
+          contactId: input.contactId,
+          source: "MANUAL",
+          transcriptionText: input.transcriptionText,
+          participants: input.participants || [],
+          conversationDate: input.conversationDate
+            ? new Date(input.conversationDate)
+            : new Date(),
+          processingStatus: "PENDING",
+          subject: input.subject,
+        },
+        include: {
+          deal: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          contact: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
       });
-    }),
 
-  // Adicionar mensagem à conversa
-  addMessage: protectedProcedure
-    .input(
-      z.object({
-        conversationId: z.string(),
-        content: z.string().min(1),
-        type: MessageType.default("NOTE"),
-        metadata: z.any().optional(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const { db, session } = ctx;
+      // TODO: Enviar para N8N para processamento assíncrono (Story 3.5)
+      // Isso será implementado na próxima story
 
-      if (!session?.user) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-          message: "Usuário não autenticado",
-        });
-      }
-
-      const currentUser = await ensureUser(db, session);
-      const tenantId = currentUser.tenantId;
-
-      return db.conversation.create({
-        data: {
-          tenantId: currentUser.tenantId,
-          ...input,
-        },
-      });
+      return conversation;
     }),
 
   // Adicionar mensagem à conversa
@@ -235,7 +240,7 @@ export const conversationRouter = createTRPCRouter({
       const conversation = await db.conversation.findFirst({
         where: {
           id: input.conversationId,
-          tenantId: tenantId,
+          tenantId: currentUser.tenantId,
         },
       });
 
@@ -272,7 +277,7 @@ export const conversationRouter = createTRPCRouter({
     .input(
       z.object({
         id: z.string(),
-        status: z.string(),
+        processingStatus: ProcessingStatus,
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -304,7 +309,7 @@ export const conversationRouter = createTRPCRouter({
 
       return db.conversation.update({
         where: { id: input.id },
-        data: { status: input.status },
+        data: { processingStatus: input.processingStatus },
       });
     }),
 
