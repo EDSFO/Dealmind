@@ -128,3 +128,4 @@ const response = await fetch('https://api-sandbox.asaas.com/v3/customers', {
 
 **Última Atualização:** 2025-01-02
 
+

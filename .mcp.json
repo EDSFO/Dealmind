@@ -1,0 +1,28 @@
+{
+  "mcpServers": {
+    "n8n-mcp": {
+      "command": "npx",
+      "args": ["n8n-mcp"],
+      "env": {
+        "MCP_MODE": "stdio",
+        "LOG_LEVEL": "error",
+        "DISABLE_CONSOLE_OUTPUT": "true"
+      }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@executeautomation/playwright-mcp-server"],
+      "env": {
+        "HEADLESS": "true"
+      }
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "context7-mcp"],
+      "env": {
+        "CONTEXT7_API_KEY": "ctx7sk-925ddead-d78a-438e-9821-428b4cac10ff",
+        "CONTEXT7_PROJECT_ID": "default"
+      }
+    }
+  }
+}

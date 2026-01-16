@@ -259,3 +259,4 @@ Se você não precisa de funcionalidades específicas do MCP, a integração dir
 
 **Última Atualização:** 2025-01-02
 
+

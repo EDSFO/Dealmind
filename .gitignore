@@ -1,1 +1,35 @@
+# Claude Code
 .claude/
+
+# Dependencies
+node_modules/
+
+# Prisma generated client
+dealmind/generated/
+dealmind/node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build output
+dealmind/.next/
+dealmind/out/
+
+# Windows artifacts
+nul
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+*.swp
+*.swo
+
+# MCP temporary files
+mcp-config-update.json
