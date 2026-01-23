@@ -91,7 +91,15 @@ export const conversationRouter = createTRPCRouter({
               id: true,
               title: true,
               value: true,
-              stage: true,
+              stage: {
+                select: {
+                  id: true,
+                  name: true,
+                  key: true,
+                  color: true,
+                  order: true,
+                },
+              },
             },
           },
           contact: true,
@@ -198,8 +206,20 @@ export const conversationRouter = createTRPCRouter({
         },
       });
 
-      // TODO: Enviar para N8N para processamento assíncrono (Story 3.5)
-      // Isso será implementado na próxima story
+      // Enviar para N8N para processamento assíncrono (Story 3.5)
+      const { sendToN8N } = await import("~/server/lib/n8n");
+      await sendToN8N({
+        conversationId: conversation.id,
+        tenantId: conversation.tenantId,
+        transcriptionText: conversation.transcriptionText ?? "",
+        dealId: conversation.dealId ?? undefined,
+        contactId: conversation.contactId ?? undefined,
+        subject: conversation.subject ?? undefined,
+        conversationDate: conversation.conversationDate ?? undefined,
+      }).catch((error) => {
+        console.error("[Conversation] Failed to send to N8N:", error);
+        // Don't throw - conversation is created, just log the error
+      });
 
       return conversation;
     }),

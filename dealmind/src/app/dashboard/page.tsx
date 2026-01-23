@@ -1,22 +1,38 @@
 import { createClient } from '~/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import LogoutButton from './logout-button'
 import { createCaller } from '~/server/api/root'
 import { createTRPCContext } from '~/server/api/trpc'
+import {
+  Plus,
+  ArrowUpRight,
+  Users,
+  Target,
+  MessageSquare,
+  TrendingUp,
+  Clock,
+  ChevronRight
+} from 'lucide-react'
+import { cn } from '~/lib/utils'
 
 const quickActions = [
-  { label: 'Novo Lead', href: '/dashboard/contacts/new', icon: 'user-plus' },
-  { label: 'Nova Negociação', href: '/dashboard/deals/new', icon: 'folder-plus' },
-  { label: 'Ver Pipeline', href: '/dashboard/deals', icon: 'chart' },
-  { label: 'Ver Relatórios', href: '/dashboard/reports', icon: 'analytics' },
+  { label: 'Novo Lead', href: '/dashboard/contacts/new', icon: Users },
+  { label: 'Nova Negociação', href: '/dashboard/deals/new', icon: Target },
+  { label: 'Nova Conversa', href: '/dashboard/conversations/new', icon: MessageSquare },
+  { label: 'Ver Pipeline', href: '/dashboard/deals', icon: TrendingUp },
 ]
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
+    maximumFractionDigits: 0,
   }).format(value)
+}
+
+function formatDate(date: any): string {
+  if (!date) return '-'
+  return new Date(date).toLocaleDateString('pt-BR')
 }
 
 export default async function DashboardPage() {
@@ -30,14 +46,11 @@ export default async function DashboardPage() {
   const user = session.user
   const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário'
 
-  // Create tRPC caller
   const ctx = await createTRPCContext({
-    supabase,
     headers: new Headers(),
   })
   const caller = createCaller(ctx)
 
-  // Fetch real data
   let deals: any[] = []
   let pipelineStats: any = null
   let contactStats: any = null
@@ -52,7 +65,6 @@ export default async function DashboardPage() {
     console.error('Error fetching dashboard data:', error)
   }
 
-  // Calculate metrics
   const totalDeals = pipelineStats?.totalDeals || 0
   const totalValue = pipelineStats?.totalValue || 0
   const wonDeals = pipelineStats?.wonThisMonth || 0
@@ -65,287 +77,159 @@ export default async function DashboardPage() {
       value: formatCurrency(totalValue),
       change: `+${wonDeals} este mês`,
       positive: true,
-      icon: 'currency',
+      icon: TrendingUp,
     },
     {
       label: 'Negociações Abertas',
       value: totalDeals.toString(),
       change: `+${totalDeals}`,
       positive: true,
-      icon: 'folder',
+      icon: Target,
     },
     {
       label: 'Taxa de Conversão',
       value: `${conversionRate}%`,
       change: `${wonDeals} ganhas`,
       positive: true,
-      icon: 'chart',
+      icon: ArrowUpRight,
     },
     {
       label: 'Total de Contatos',
       value: (contactStats?.total || 0).toString(),
       change: `${contactStats?.withEmail || 0} com email`,
       positive: true,
-      icon: 'users',
+      icon: Users,
     },
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="fixed inset-y-0 left-0 z-40 w-64 bg-gray-900 pt-16">
-          {/* Logo no Sidebar */}
-          <div className="flex h-16 items-center justify-center border-b border-gray-800">
-            <Link href="/" className="text-2xl font-bold text-white">
-              DealMind
+    <div className="p-8 max-w-7xl mx-auto space-y-8">
+      {/* Welcome Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-[#001d3a]">Olá, {userName}!</h1>
+          <p className="text-gray-500 mt-1">Aqui está o que está acontecendo com suas vendas hoje.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button className="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors">
+            Personalizar
+          </button>
+          <Link
+            href="/dashboard/deals/new"
+            className="px-4 py-2 bg-[#ff5c35] text-white rounded-md text-sm font-semibold hover:bg-[#e04d2b] transition-all shadow-sm flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" /> Novo Negócio
+          </Link>
+        </div>
+      </div>
+
+      {/* Metrics Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow group">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
+                <metric.icon className="h-5 w-5 text-blue-600" />
+              </div>
+              <span className={cn(
+                "text-xs font-bold px-2 py-0.5 rounded",
+                metric.positive ? "text-green-700 bg-green-50" : "text-yellow-700 bg-yellow-50"
+              )}>
+                {metric.change}
+              </span>
+            </div>
+            <p className="text-sm font-medium text-gray-500">{metric.label}</p>
+            <h3 className="text-2xl font-bold text-[#001d3a] mt-1">{metric.value}</h3>
+          </div>
+        ))}
+      </div>
+
+      {/* Quick Actions Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {quickActions.map((action) => (
+          <Link
+            key={action.label}
+            href={action.href}
+            className="group flex flex-col items-center p-6 bg-white border border-gray-200 rounded-xl hover:border-orange-200 hover:bg-orange-50/30 transition-all text-center"
+          >
+            <div className="mb-3 p-3 bg-gray-50 rounded-full group-hover:bg-orange-100/50 group-hover:scale-110 transition-all">
+              <action.icon className="h-6 w-6 text-gray-400 group-hover:text-orange-500" />
+            </div>
+            <span className="text-sm font-semibold text-gray-700 group-hover:text-[#001d3a]">{action.label}</span>
+          </Link>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Recent Deals Table-ish */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="font-bold text-[#001d3a] flex items-center gap-2">
+              <Clock className="h-5 w-5 text-blue-500" /> Negociações Recentes
+            </h3>
+            <Link href="/dashboard/deals" className="text-xs font-semibold text-blue-600 hover:underline">
+              Ver tudo
             </Link>
           </div>
-
-          {/* Navigation */}
-          <nav className="mt-6 px-4 space-y-1">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-3 rounded-lg bg-blue-600 px-4 py-3 text-white font-medium"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
-              Dashboard
-            </Link>
-
-            <Link
-              href="/dashboard/contacts"
-              className="flex items-center gap-3 rounded-lg px-4 py-3 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              Contatos
-            </Link>
-
-            <Link
-              href="/dashboard/deals"
-              className="flex items-center gap-3 rounded-lg px-4 py-3 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Negociações
-            </Link>
-
-            <Link
-              href="/dashboard/companies"
-              className="flex items-center gap-3 rounded-lg px-4 py-3 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-              Empresas
-            </Link>
-
-            <Link
-              href="/dashboard/users"
-              className="flex items-center gap-3 rounded-lg px-4 py-3 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
-            >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-              Usuários
-            </Link>
-          </nav>
-
-          {/* User Info no Sidebar */}
-          <div className="absolute bottom-0 left-0 right-0 border-t border-gray-800 p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white font-semibold">
-                {userName.charAt(0).toUpperCase()}
+          <div className="divide-y divide-gray-100">
+            {recentDeals.length > 0 ? recentDeals.map((deal: any) => (
+              <Link
+                key={deal.id}
+                href={`/dashboard/deals/${deal.id}`}
+                className="flex items-center gap-4 p-5 hover:bg-gray-50 transition-colors group"
+              >
+                <div className="h-10 w-10 flex-shrink-0 bg-blue-50 rounded-full flex items-center justify-center font-bold text-blue-600 group-hover:bg-blue-100">
+                  {deal.title.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-[#001d3a] truncate">{deal.title}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 capitalize">{deal.stage?.name?.toLowerCase().replace(/_/g, ' ') || 'Sem estágio'}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-[#001d3a]">{formatCurrency(deal.value)}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">{formatDate(deal.createdAt)}</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-gray-600" />
+              </Link>
+            )) : (
+              <div className="p-10 text-center text-gray-500 italic text-sm">
+                Nenhuma negociação recente para exibir.
               </div>
-              <div className="flex-1 overflow-hidden">
-                <p className="truncate text-sm font-medium text-white">{userName}</p>
-                <p className="truncate text-xs text-gray-400">{user.email}</p>
-              </div>
-            </div>
+            )}
           </div>
-        </aside>
+        </div>
 
-        {/* Main Content */}
-        <div className="flex-1 pl-64">
-          {/* Header */}
-          <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-white px-6">
-            <div className="flex items-center gap-4">
-              <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <LogoutButton />
-            </div>
-          </header>
-
-          {/* Page Content */}
-          <main className="p-6">
-            {/* Welcome Banner */}
-            <div className="mb-6 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white">
-              <h2 className="text-2xl font-bold">Bem-vindo de volta, {userName}!</h2>
-              <p className="mt-1 text-blue-100">Aqui está o resumo das suas atividades hoje.</p>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-              {quickActions.map((action) => (
-                <Link
-                  key={action.label}
-                  href={action.href}
-                  className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:border-blue-300 hover:shadow-md transition-all"
-                >
-                  <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
-                    <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </div>
-                  <span className="text-sm font-medium text-gray-700">{action.label}</span>
-                </Link>
-              ))}
-            </div>
-
-            {/* Metrics Cards */}
-            <div className="mb-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {metrics.map((metric) => (
-                <div key={metric.label} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">{metric.label}</p>
-                      <p className="mt-1 text-2xl font-bold text-gray-900">{metric.value}</p>
-                    </div>
-                    <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                      metric.positive ? 'bg-green-100' : 'bg-yellow-100'
-                    }`}>
-                      <svg className={`h-5 w-5 ${metric.positive ? 'text-green-600' : 'text-yellow-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex items-center text-sm">
-                    <span className={metric.positive ? 'text-green-600' : 'text-yellow-600'}>
-                      {metric.change}
-                    </span>
-                  </div>
+        {/* Pipeline Summary Chart */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-6">
+          <h3 className="font-bold text-[#001d3a]">Resumo do Pipeline</h3>
+          <div className="space-y-4">
+            {pipelineStats?.byStage?.map((stage: any) => (
+              <div key={stage.stageId} className="space-y-1.5">
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium text-gray-700">{stage.stageName}</span>
+                  <span className="font-bold text-[#001d3a]">{formatCurrency(stage.value)}</span>
                 </div>
-              ))}
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Pipeline by Stage */}
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="border-b border-gray-100 px-6 py-4">
-                  <h3 className="font-semibold text-gray-900">Pipeline por Estágio</h3>
-                </div>
-                <div className="p-6">
-                  {pipelineStats?.byStage && pipelineStats.byStage.length > 0 ? (
-                    <div className="space-y-3">
-                      {pipelineStats.byStage.map((stage: any) => (
-                        <div key={stage.stage} className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={`h-2 w-2 rounded-full ${
-                              stage.stage === 'CLOSED_WON' ? 'bg-green-500' :
-                              stage.stage === 'CLOSED_LOST' ? 'bg-red-500' :
-                              stage.stage === 'NEGOTIATION' ? 'bg-purple-500' :
-                              stage.stage === 'PROPOSAL' ? 'bg-yellow-500' :
-                              stage.stage === 'QUALIFICATION' ? 'bg-blue-500' :
-                              'bg-gray-500'
-                            }`} />
-                            <span className="text-sm text-gray-700">
-                              {stage.stage === 'LEAD' ? 'Lead' :
-                               stage.stage === 'QUALIFICATION' ? 'Qualificação' :
-                               stage.stage === 'PROPOSAL' ? 'Proposta' :
-                               stage.stage === 'NEGOTIATION' ? 'Negociação' :
-                               stage.stage === 'CLOSED_WON' ? 'Ganho' :
-                               stage.stage === 'CLOSED_LOST' ? 'Perdido' : stage.stage}
-                            </span>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-sm font-medium text-gray-900">{stage.count}</span>
-                            <span className="ml-2 text-sm text-gray-500">
-                              ({formatCurrency(stage.value)})
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500 text-center py-4">
-                      Nenhuma negociação ainda. Comece adicionando deals!
-                    </p>
-                  )}
-                </div>
-                <div className="border-t border-gray-100 px-6 py-4">
-                  <Link href="/dashboard/deals" className="text-sm font-medium text-blue-600 hover:text-blue-700">
-                    Ver pipeline completo →
-                  </Link>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                    style={{ width: `${totalValue > 0 ? Math.max(5, (stage.value / totalValue) * 100) : 0}%` }}
+                  />
                 </div>
               </div>
-
-              {/* Recent Deals */}
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="border-b border-gray-100 px-6 py-4">
-                  <h3 className="font-semibold text-gray-900">Negociações Recentes</h3>
+            ))}
+            {(!pipelineStats?.byStage || pipelineStats.byStage.length === 0) && (
+              <div className="h-48 flex flex-col items-center justify-center text-center space-y-3">
+                <div className="h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center">
+                  <Target className="h-6 w-6 text-gray-300" />
                 </div>
-                <div className="divide-y divide-gray-100 px-6 py-4">
-                  {recentDeals.length > 0 ? recentDeals.map((deal: any) => (
-                    <Link
-                      key={deal.id}
-                      href={`/dashboard/deals/${deal.id}`}
-                      className="flex items-center gap-4 py-3 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
-                    >
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                        deal.stage === 'CLOSED_WON' ? 'bg-green-100 text-green-600' :
-                        deal.stage === 'CLOSED_LOST' ? 'bg-red-100 text-red-600' :
-                        deal.priority === 'HIGH' || deal.priority === 'URGENT' ? 'bg-orange-100 text-orange-600' :
-                        'bg-blue-100 text-blue-600'
-                      }`}>
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{deal.title}</p>
-                        <p className="text-xs text-gray-500">{deal.contact?.name || 'Sem contato'}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-gray-900">{formatCurrency(Number(deal.value))}</p>
-                        <p className={`text-xs ${
-                          deal.stage === 'CLOSED_WON' ? 'text-green-600' :
-                          deal.stage === 'CLOSED_LOST' ? 'text-red-600' :
-                          'text-gray-500'
-                        }`}>
-                          {deal.stage === 'LEAD' ? 'Lead' :
-                           deal.stage === 'QUALIFICATION' ? 'Qualificação' :
-                           deal.stage === 'PROPOSAL' ? 'Proposta' :
-                           deal.stage === 'NEGOTIATION' ? 'Negociação' :
-                           deal.stage === 'CLOSED_WON' ? 'Ganho' :
-                           deal.stage === 'CLOSED_LOST' ? 'Perdido' : deal.stage}
-                        </p>
-                      </div>
-                    </Link>
-                  )) : (
-                    <div className="text-center py-8">
-                      <p className="text-sm text-gray-500">Nenhuma negociação ainda.</p>
-                      <Link
-                        href="/dashboard/deals/new"
-                        className="mt-2 inline-flex text-sm font-medium text-blue-600 hover:text-blue-700"
-                      >
-                        Criar primeira negociação
-                      </Link>
-                    </div>
-                  )}
-                </div>
-                <div className="border-t border-gray-100 px-6 py-4">
-                  <Link href="/dashboard/deals" className="text-sm font-medium text-blue-600 hover:text-blue-700">
-                    Ver todas as negociações →
-                  </Link>
-                </div>
+                <p className="text-sm text-gray-500">Adicione negócios para ver a distribution do seu pipeline.</p>
               </div>
-            </div>
-          </main>
+            )}
+          </div>
+          <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-sm">
+            <span className="text-gray-500 italic">Total de {deals.length} negócios</span>
+            <span className="font-bold text-green-600">Taxa: {conversionRate}%</span>
+          </div>
         </div>
       </div>
     </div>

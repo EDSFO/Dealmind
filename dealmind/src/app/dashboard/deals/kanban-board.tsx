@@ -2,20 +2,36 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import {
+  ChevronRight,
+  ChevronLeft,
+  MessageSquare,
+  CheckSquare,
+  Plus,
+  MoreHorizontal,
+  Calendar,
+  User,
+  ExternalLink,
+  Edit2,
+  Trash2
+} from 'lucide-react'
+import { cn } from '~/lib/utils'
 
 const DEAL_STAGES = [
-  { key: 'LEAD', label: 'Lead', color: 'bg-gray-100 border-gray-200' },
-  { key: 'QUALIFICATION', label: 'Qualificação', color: 'bg-blue-50 border-blue-200' },
-  { key: 'PROPOSAL', label: 'Proposta', color: 'bg-yellow-50 border-yellow-200' },
-  { key: 'NEGOTIATION', label: 'Negociação', color: 'bg-purple-50 border-purple-200' },
-  { key: 'CLOSED_WON', label: 'Ganho', color: 'bg-green-50 border-green-200' },
-  { key: 'CLOSED_LOST', label: 'Perdido', color: 'bg-red-50 border-red-200' },
+  { key: 'LEAD', label: 'Oportunidade de negócio', color: 'bg-white' },
+  { key: 'QUALIFICATION', label: 'Em diagnóstico', color: 'bg-white' },
+  { key: 'PROPOSAL', label: 'Elaboração de Proposta', color: 'bg-white' },
+  { key: 'NEGOTIATION', label: 'Em negociação', color: 'bg-white' },
+  { key: 'CONTRACTING', label: 'Contratação', color: 'bg-white' },
+  { key: 'CLOSED_WON', label: 'Negócio fechado', color: 'bg-white' },
+  { key: 'CLOSED_LOST', label: 'Negócio perdido', color: 'bg-white' },
 ] as const
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
+    maximumFractionDigits: 0,
   }).format(value)
 }
 
@@ -31,6 +47,7 @@ interface Deal {
   stage: string
   priority: string
   expectedClose: string | null
+  createdAt?: string
   contact: { name: string } | null
   owner: { id: string; name: string } | null
 }
@@ -44,27 +61,13 @@ export default function KanbanBoard({ initialDeals, users }: KanbanBoardProps) {
   const [deals] = useState(initialDeals)
   const [draggedDeal, setDraggedDeal] = useState<Deal | null>(null)
   const [draggedOverStage, setDraggedOverStage] = useState<string | null>(null)
-  const [filterOwner, setFilterOwner] = useState<string>('all')
-  const [filterStage, setFilterStage] = useState<string>('all')
-  const [searchTerm, setSearchTerm] = useState('')
 
-  // Filter deals based on filters
-  const filteredDeals = useMemo(() => {
-    return deals.filter((deal) => {
-      const matchesOwner = filterOwner === 'all' || deal.owner?.id === filterOwner
-      const matchesStage = filterStage === 'all' || deal.stage === filterStage
-      const matchesSearch = searchTerm === '' ||
-        deal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        deal.contact?.name?.toLowerCase().includes(searchTerm.toLowerCase())
-
-      return matchesOwner && matchesStage && matchesSearch
-    })
-  }, [deals, filterOwner, filterStage, searchTerm])
-
-  const dealsByStage = DEAL_STAGES.reduce((acc, stage) => {
-    acc[stage.key] = filteredDeals.filter((deal) => deal.stage === stage.key)
-    return acc
-  }, {} as Record<string, Deal[]>)
+  const dealsByStage = useMemo(() => {
+    return DEAL_STAGES.reduce((acc, stage) => {
+      acc[stage.key] = deals.filter((deal) => deal.stage === stage.key)
+      return acc
+    }, {} as Record<string, Deal[]>)
+  }, [deals])
 
   const handleDragStart = (e: React.DragEvent, deal: Deal) => {
     setDraggedDeal(deal)
@@ -74,7 +77,6 @@ export default function KanbanBoard({ initialDeals, users }: KanbanBoardProps) {
 
   const handleDragOver = (e: React.DragEvent, stageKey: string) => {
     e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
     setDraggedOverStage(stageKey)
   }
 
@@ -91,13 +93,13 @@ export default function KanbanBoard({ initialDeals, users }: KanbanBoardProps) {
       return
     }
 
-    // Optimistic update is handled by parent revalidation
     try {
       await fetch('/api/deals/update-stage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ dealId: draggedDeal.id, stage: stageKey }),
       })
+      // Note: In a real app, we'd trigger a router.refresh() or use tRPC mutation
     } catch (error) {
       console.error('Error updating deal stage:', error)
     }
@@ -105,148 +107,133 @@ export default function KanbanBoard({ initialDeals, users }: KanbanBoardProps) {
     setDraggedDeal(null)
   }
 
-  const handleDragEnd = () => {
-    setDraggedDeal(null)
-    setDraggedOverStage(null)
-  }
-
-  const clearFilters = () => {
-    setFilterOwner('all')
-    setFilterStage('all')
-    setSearchTerm('')
-  }
-
-  const hasActiveFilters = filterOwner !== 'all' || filterStage !== 'all' || searchTerm !== ''
-
   return (
-    <div>
-      {/* Filters */}
-      <div className="mb-6 flex flex-wrap gap-4 items-center bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-        <div className="flex-1 min-w-[200px]">
-          <label className="text-xs font-medium text-gray-500 mb-1 block">Buscar</label>
-          <input
-            type="text"
-            placeholder="Buscar deals..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-        </div>
+    <div className="flex gap-4 min-h-full pb-8 overflow-x-auto select-none">
+      {DEAL_STAGES.map((stage) => {
+        const stageDeals = dealsByStage[stage.key] || []
 
-        <div className="w-48">
-          <label className="text-xs font-medium text-gray-500 mb-1 block">Responsável</label>
-          <select
-            value={filterOwner}
-            onChange={(e) => setFilterOwner(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        return (
+          <div
+            key={stage.key}
+            className={cn(
+              "flex flex-col min-w-[320px] w-80 bg-[#eaf0f6] rounded-lg border border-gray-200 shadow-sm transition-all",
+              draggedOverStage === stage.key && "ring-2 ring-blue-400 border-transparent bg-blue-50/50"
+            )}
+            onDragOver={(e) => handleDragOver(e, stage.key)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, stage.key)}
           >
-            <option value="all">Todos</option>
-            {users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="w-48">
-          <label className="text-xs font-medium text-gray-500 mb-1 block">Estágio</label>
-          <select
-            value={filterStage}
-            onChange={(e) => setFilterStage(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="all">Todos</option>
-            {DEAL_STAGES.map((stage) => (
-              <option key={stage.key} value={stage.key}>
-                {stage.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {hasActiveFilters && (
-          <button
-            onClick={clearFilters}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg"
-          >
-            Limpar filtros
-          </button>
-        )}
-
-        <div className="ml-auto text-sm text-gray-500">
-          {filteredDeals.length} / {deals.length} deals
-        </div>
-      </div>
-
-      {/* Kanban Columns */}
-      <div className="flex gap-4 overflow-x-auto pb-4">
-        {DEAL_STAGES.map((stage) => {
-          const stageDeals = dealsByStage[stage.key] || []
-          const stageValue = stageDeals.reduce((sum, deal) => sum + deal.value, 0)
-
-          return (
-            <div
-              key={stage.key}
-              className={`min-w-[300px] flex-1 rounded-xl border ${stage.color} p-4 transition-colors ${
-                draggedOverStage === stage.key ? 'ring-2 ring-blue-400' : ''
-              }`}
-              onDragOver={(e) => handleDragOver(e, stage.key)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, stage.key)}
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900">{stage.label}</h3>
-                <span className="rounded-full bg-white px-2 py-1 text-xs font-medium text-gray-600">
-                  {stageDeals.length}
-                </span>
-              </div>
-              <p className="mb-3 text-sm text-gray-600">{formatCurrency(stageValue)}</p>
-              <div className="space-y-3">
-                {stageDeals.map((deal) => (
-                  <div
-                    key={deal.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, deal)}
-                    onDragEnd={handleDragEnd}
-                    className={`rounded-lg border border-gray-200 bg-white p-3 shadow-sm cursor-move hover:shadow-md transition-shadow ${
-                      draggedDeal?.id === deal.id ? 'opacity-50' : ''
-                    }`}
-                  >
-                    <Link href={`/dashboard/deals/${deal.id}`} className="block">
-                      <h4 className="font-medium text-gray-900">{deal.title}</h4>
-                      <p className="mt-1 text-sm font-semibold text-blue-600">
-                        {formatCurrency(deal.value)}
-                      </p>
-                      <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-                        {deal.contact && (
-                          <span>{deal.contact.name}</span>
-                        )}
-                        {deal.expectedClose && (
-                          <span>{formatDate(deal.expectedClose)}</span>
-                        )}
-                      </div>
-                      {deal.owner && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <div className="h-5 w-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-medium">
-                            {deal.owner.name?.charAt(0) || 'U'}
-                          </div>
-                          <span className="text-xs text-gray-500">{deal.owner.name}</span>
-                        </div>
-                      )}
-                    </Link>
-                  </div>
-                ))}
-                {stageDeals.length === 0 && (
-                  <div className="text-center py-8 text-sm text-gray-400">
-                    Sem deals
-                  </div>
-                )}
+            {/* Column Header */}
+            <div className="p-3 border-b border-gray-300/60 bg-white/50 rounded-t-lg">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-xs font-bold text-[#001d3a] uppercase tracking-wider truncate flex-1 pr-2">
+                  {stage.label}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-gray-500 bg-gray-200/60 px-2 py-0.5 rounded">
+                    {stageDeals.length}
+                  </span>
+                  <button className="text-gray-400 hover:text-gray-600 transition-colors">
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
-          )
-        })}
-      </div>
+
+            {/* Stage Progress Bar (Hubspot style) */}
+            <div className="h-1 flex w-full">
+              {DEAL_STAGES.map((s, idx) => (
+                <div
+                  key={s.key}
+                  className={cn(
+                    "flex-1 border-r border-white last:border-0",
+                    DEAL_STAGES.findIndex(x => x.key === stage.key) >= idx ? "bg-blue-500" : "bg-gray-300"
+                  )}
+                />
+              ))}
+            </div>
+
+            {/* Deals List */}
+            <div className="flex-1 p-3 space-y-3 overflow-y-auto">
+              {stageDeals.map((deal) => (
+                <div
+                  key={deal.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, deal)}
+                  className={cn(
+                    "group bg-white rounded-lg border border-gray-300 shadow-sm p-4 cursor-move hover:border-blue-400 hover:shadow-md transition-all relative",
+                    draggedDeal?.id === deal.id && "opacity-40 grayscale-[0.5]"
+                  )}
+                >
+                  <div className="flex flex-col gap-2">
+                    <Link href={`/dashboard/deals/${deal.id}`} className="hover:underline">
+                      <h4 className="text-sm font-bold text-[#0091ae] leading-tight">
+                        {deal.title}
+                      </h4>
+                    </Link>
+
+                    <div className="space-y-1 mt-1">
+                      <div className="flex items-center text-[11px] text-gray-600">
+                        <span className="w-24">Valor:</span>
+                        <span className="font-semibold">{formatCurrency(deal.value)}</span>
+                      </div>
+                      <div className="flex items-center text-[11px] text-gray-600">
+                        <span className="w-24">Data de fechamento:</span>
+                        <span>{formatDate(deal.expectedClose)}</span>
+                      </div>
+                      <div className="flex items-center text-[11px] text-gray-600">
+                        <span className="w-24">Proprietário:</span>
+                        <span className="truncate">{deal.owner?.name || 'Não atribuído'}</span>
+                      </div>
+                      <div className="flex items-center text-[11px] text-gray-600">
+                        <span className="w-24">Data de criação:</span>
+                        <span>{formatDate(deal.createdAt || new Date())}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 mt-2 border-t border-gray-100 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center text-[10px] text-gray-400 font-medium">
+                          <CheckSquare className="h-3 w-3 mr-1" />
+                          Tarefa há 8 dias
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button className="text-gray-400 hover:text-blue-500"><Edit2 className="h-3.5 w-3.5" /></button>
+                        <button className="text-gray-400 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </div>
+                    </div>
+
+                    {/* Bottom Action Bar */}
+                    <div className="flex items-center justify-end gap-2 mt-1">
+                      <button className="h-6 w-6 rounded hover:bg-gray-100 flex items-center justify-center text-blue-600">
+                        <MessageSquare className="h-3.5 w-3.5" />
+                      </button>
+                      <button className="h-6 w-6 rounded hover:bg-gray-100 flex items-center justify-center text-blue-600">
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                      <div className="flex -space-x-1.5 ml-1">
+                        {[1, 2].map(i => (
+                          <div key={i} className="h-5 w-5 rounded-full border border-white bg-blue-100 flex items-center justify-center text-[8px] font-bold text-blue-600">
+                            ED
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {stageDeals.length === 0 && (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 flex flex-col items-center justify-center text-gray-400">
+                  <Plus className="h-6 w-6 mb-1 opacity-20" />
+                  <span className="text-[10px] font-medium uppercase tracking-wider">Solte aqui</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

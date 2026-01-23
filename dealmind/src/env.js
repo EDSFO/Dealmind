@@ -13,6 +13,9 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
+    // N8N Configuration
+    N8N_WEBHOOK_URL: z.string().url(),
+    N8N_WEBHOOK_SECRET: z.string().min(32),
   },
 
   /**
@@ -36,6 +39,9 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    // N8N Configuration
+    N8N_WEBHOOK_URL: process.env.N8N_WEBHOOK_URL,
+    N8N_WEBHOOK_SECRET: process.env.N8N_WEBHOOK_SECRET,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

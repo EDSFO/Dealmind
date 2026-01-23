@@ -19,21 +19,114 @@ model Tenant {
   deals         Deal[]
   invites       Invite[]
   users         User[]
+  pipelineStages PipelineStage[]
+  tickets       Ticket[]
 
   @@map("tenants")
 }
 
 model Company {
-  id        String   @id @default(uuid())
-  tenantId  String   @map("tenant_id")
-  name      String
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  users     User[]
+  id                String              @id @default(uuid())
+  tenantId          String              @map("tenant_id")
+
+  // 1. Identificação
+  name              String              // Nome fantasia
+  legalName         String?             @map("legal_name")      // Razão social
+  cnpj              String?             @unique                // CNPJ ( único globalmente)
+  status            CompanyStatus       @default(LEAD)
+  logoUrl           String?             @map("logo_url")       // URL do logo
+  website           String?                                    // Website/domínio
+
+  // 2. Classificação de Negócio
+  segment           String?                                    // Segmento/setor
+  businessType      BusinessType?       @map("business_type")
+  companySize       CompanySize?        @map("company_size")
+  employeeCount     Int?                @map("employee_count")
+  annualRevenue     Decimal?           @map("annual_revenue") @db.Decimal(15, 2)
+
+  // 3. Localização
+  country           String?            @default("Brasil")
+  state             String?            // Estado/Região
+  city              String?            // Cidade
+  zipCode           String?            @map("zip_code")       // CEP
+
+  // 4. Informações Comerciais
+  potential         CompanyPotential?  // Potencial da empresa
+  leadSource        LeadSource?        @map("lead_source")     // Origem do lead
+  productsOfInterest String?           @map("products_of_interest") @db.Text
+  estimatedValue    Decimal?           @map("estimated_value") @db.Decimal(15, 2)
+
+  // 5. Responsabilidade
+  ownerId           String?            @map("owner_id")        // Responsável comercial
+
+  // 6. Observações Estratégicas
+  description       String?            @db.Text               // Descrição da empresa
+  internalNotes     String?            @map("internal_notes") @db.Text // Observações internas
+  perceivedRisks    String?            @map("perceived_risks") @db.Text // Riscos percebidos
+  mappedOpportunities String?          @map("mapped_opportunities") @db.Text // Oportunidades
+
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users             User[]
+  contacts          Contact[]
+  deals             Deal[]
+  tickets           Ticket[]
+  owner             User?              @relation("CompanyOwner", fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
+  @@index([status])
+  @@index([businessType])
+  @@index([companySize])
+  @@index([potential])
+  @@index([leadSource])
   @@map("companies")
+}
+
+// Enums para Company
+enum CompanyStatus {
+  LEAD
+  PROSPECT
+  CLIENT
+  INACTIVE
+}
+
+enum BusinessType {
+  B2B
+  B2C
+  INDUSTRY
+  RETAIL
+  SERVICES
+  TECHNOLOGY
+  MANUFACTURING
+  AGRO
+  OTHER
+}
+
+enum CompanySize {
+  MICRO     // 1-9 funcionários
+  SMALL     // 10-49 funcionários
+  MEDIUM    // 50-249 funcionários
+  LARGE     // 250+ funcionários
+}
+
+enum CompanyPotential {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum LeadSource {
+  INBOUND
+  OUTBOUND
+  REFERRAL
+  EVENT
+  PARTNERSHIP
+  ADVERTISING
+  CONTENT
+  SOCIAL_MEDIA
+  OTHER
 }
 
 model User {
@@ -47,8 +140,11 @@ model User {
   activities    Activity[]
   conversations Conversation[]
   deals         Deal[]
+  tickets       Ticket[]
   company       Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ownedCompanies Company[]     @relation("CompanyOwner")
+  ownedContacts Contact[]      @relation("ContactOwner")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -73,77 +169,173 @@ model Invite {
   @@map("invites")
 }
 
-model Contact {
-  id            String         @id @default(uuid())
-  tenantId      String         @map("tenant_id")
-  name          String
-  email         String?
-  phone         String?
-  company       String?
-  position      String?
-  source        String?
-  notes         String?
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversations Conversation[]
-  deals         Deal[]
+model PipelineStage {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  name        String
+  key         String   // Unique key for the stage (e.g., "lead", "proposal")
+  order       Int      // Order in the pipeline
+  color       String?  // Hex color for UI
+  probability Int?     // Default probability for deals in this stage
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deals       Deal[]
 
+  @@unique([tenantId, key])
+  @@unique([tenantId, order])
   @@index([tenantId])
+  @@map("pipeline_stages")
+}
+
+model Contact {
+  id                String         @id @default(uuid())
+  tenantId          String         @map("tenant_id")
+
+  // 1. Identificação Básica
+  firstName         String?        @map("first_name") // Temporariamente opcional para migração
+  lastName          String?        @map("last_name")
+  name              String?        // Campo temporário para migração
+  email             String?        // Campo único por tenant
+  phone             String?        // Temporário - será migrado para landline
+  landline          String?        // Telefone fixo
+  mobilePhone       String?        @map("mobile_phone") // Celular
+  whatsapp          String?        // WhatsApp
+
+  // 2. Informações Profissionais
+  position          String?        // Cargo
+  department        String?        // Área / departamento
+  linkedinUrl       String?        @map("linkedin_url")
+  company           String?        // Nome da empresa (texto)
+  companyId         String?        @map("company_id")  // FK para Company (opcional)
+
+  // 3. Relacionamento Comercial
+  ownerId           String?        @map("owner_id") // Proprietário do contato
+  status            ContactStatus  @default(LEAD) // LEAD, QUALIFIED, CLIENT, INACTIVE
+  source            String?        // Origem: INBOUND, OUTBOUND, REFERRAL, EVENT, etc.
+
+  // 4. Classificação
+  leadScore         Int            @default(0) @map("lead_score") // Score 0-100
+
+  // 5. Contexto e Observações
+  notes             String?        @db.Text // Temporário - será migrado para internalNotes
+  internalNotes     String?        @map("internal_notes") @db.Text // Observações internas
+  relationshipNotes String?        @map("relationship_notes") @db.Text // Notas sobre relacionamento
+  preferences       String?        @db.Text // Preferências ou restrições (ex: só WhatsApp, horário, etc.)
+
+  // 6. Informações Adicionais
+  tags              String[]       @default([]) // Array de strings para tags customizadas
+  metadata          Json?          // Dados adicionais flexíveis
+
+  // 7. Controle e Auditoria
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  lastContactAt     DateTime?      @map("last_contact_at") // Última interação
+
+  tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversations     Conversation[]
+  deals             Deal[]
+  tickets           Ticket[]
+  companyRel        Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  owner             User?          @relation("ContactOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+
   @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([tenantId, companyId])
+  @@index([email])
+  @@index([status])
+  @@index([ownerId])
   @@map("contacts")
 }
 
+enum ContactStatus {
+  LEAD
+  QUALIFIED
+  CLIENT
+  INACTIVE
+  ACTIVE // Manter para compatibilidade durante migração
+  BLOCKED // Manter para compatibilidade durante migração
+  UNQUALIFIED // Manter para compatibilidade durante migração
+}
+
 model Deal {
-  id            String         @id @default(uuid())
-  tenantId      String         @map("tenant_id")
-  contactId     String?        @map("contact_id")
-  ownerId       String         @map("owner_id")
-  title         String
-  description   String?
-  value         Decimal        @db.Decimal(15, 2)
-  currency      String         @default("BRL")
-  stage         DealStage      @default(LEAD)
-  priority      DealPriority   @default(MEDIUM)
-  expectedClose DateTime?      @map("expected_close")
-  probability   Int            @default(0)
-  lostReason    String?        @map("lost_reason")
-  wonAt         DateTime?      @map("won_at")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  activities    Activity[]
-  conversations Conversation[]
-  contact       Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  owner         User           @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                String         @id @default(uuid())
+  tenantId          String         @map("tenant_id")
+  contactId         String?        @map("contact_id")
+  companyId         String?        @map("company_id") // Empresa associada
+  ownerId           String         @map("owner_id")
+
+  // 1. Identificação do Negócio
+  title             String
+  description       String?        @db.Text
+  stageId           String?        @map("stage_id") // Etapa do negócio (via PipelineStage)
+  priority          DealPriority   @default(MEDIUM)
+
+  // 2. Contexto Comercial (dor e motivação)
+  clientProblem     String?        @map("client_problem") @db.Text // Problema/demanda do cliente
+  opportunityReason String?        @map("opportunity_reason") @db.Text // Motivo da oportunidade
+  sourceChannel     String?        @map("source_channel") // INBOUND, OUTBOUND, REFERRAL, PARTNER, etc.
+
+  // 3. Qualificação de Mercado
+  marketSegment     String?        @map("market_segment") // Segmento de mercado
+  productSolution   String?        @map("product_solution") @db.Text // Produto/solução ofertada
+
+  // 4. Valor e Métrica
+  value             Decimal        @db.Decimal(15, 2)
+  quantity          Int?           // Quantidade quando aplicável
+  currency          String         @default("BRL")
+
+  // 5. Previsão e Probabilidade
+  expectedClose     DateTime?      @map("expected_close")
+  probability       Int            @default(0)
+
+  // 6. Resolução
+  lostReason        String?        @map("lost_reason") @db.Text
+  wonAt             DateTime?      @map("won_at")
+
+  // 7. Controle e Auditoria
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  activities        Activity[]
+  conversations     Conversation[]
+  tickets           Ticket[]
+  contact           Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  company           Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  owner             User           @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  tenant            Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stage             PipelineStage? @relation(fields: [stageId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([contactId])
+  @@index([companyId])
   @@index([ownerId])
-  @@index([stage])
+  @@index([stageId])
   @@map("deals")
 }
 
 model Conversation {
-  id                String            @id @default(uuid())
-  tenantId          String            @map("tenant_id")
-  userId            String            @map("user_id")
-  dealId            String?           @map("deal_id")
-  contactId         String?           @map("contact_id")
+  id                String             @id @default(uuid())
+  tenantId          String             @map("tenant_id")
+  userId            String             @map("user_id")
+  dealId            String?            @map("deal_id")
+  contactId         String?            @map("contact_id")
+  subject           String?
   source            ConversationSource @default(MANUAL)
-  transcriptionText String?           @map("transcription_text")
+  transcriptionText String?            @map("transcription_text")
   participants      Json?
-  conversationDate  DateTime?         @map("conversation_date")
-  processingStatus  ProcessingStatus  @default(PENDING)
-  errorReason       String?           @map("error_reason")
-  externalId        String?           @map("external_id")
+  conversationDate  DateTime?          @map("conversation_date")
+  processingStatus  ProcessingStatus   @default(PENDING)
+  errorReason       String?            @map("error_reason")
+  externalId        String?            @map("external_id")
   metadata          Json?
-  createdAt         DateTime          @default(now()) @map("created_at")
-  updatedAt         DateTime          @updatedAt @map("updated_at")
-  contact           Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  deal              Deal?             @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user              User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  contact           Contact?           @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal              Deal?              @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user              User               @relation(fields: [userId], references: [id], onDelete: Restrict)
   messages          Message[]
   insight           Insight?
 
@@ -195,37 +387,113 @@ model Activity {
 }
 
 model Insight {
-  id             String       @id @default(uuid())
-  conversationId String       @unique @map("conversation_id")
-  interests      Json?
-  objections     Json?
-  commitments    Json?
-  progressSignals Json?       @map("progress_signals")
-  riskSignals    Json?        @map("risk_signals")
-  nextActions    Json?        @map("next_actions")
-  summary        String?
-  metadata       Json?
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  id              String       @id @default(uuid())
+  conversationId  String       @unique @map("conversation_id")
+  interests       Json?
+  objections      Json?
+  commitments     Json?
+  progressSignals Json?        @map("progress_signals")
+  riskSignals     Json?        @map("risk_signals")
+  nextActions     Json?        @map("next_actions")
+  summary         String?
+  // Dados extraídos da conversa para preenchimento automático do CRM
+  extractedData   Json?        @map("extracted_data")
+  // {
+  //   company: { name, industry, size, website, address }
+  //   deal: { value, currency, expectedClose, title }
+  //   contact: { name, email, phone, position, company }
+  //   participants: [{ name, role, email, phone }]
+  // }
+  metadata        Json?
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
   @@map("insights")
+}
+
+model Ticket {
+  id              String          @id @default(uuid())
+  tenantId        String          @map("tenant_id")
+
+  // Identificação
+  title           String
+  description     String?         @db.Text
+
+  // Relacionamentos
+  companyId       String?         @map("company_id")
+  contactId       String?         @map("contact_id")
+  dealId          String?         @map("deal_id")
+  ownerId         String          @map("owner_id") // Responsável
+
+  // Classificação
+  type            TicketType      @default(SUPPORT)
+  priority        TicketPriority  @default(MEDIUM)
+  status          TicketStatus    @default(OPEN)
+
+  // Informações Adicionais
+  source          String?         // Origem (Email, WhatsApp, Phone, Portal)
+  tags            Json?           // Array de strings
+
+  // SLA e Resolução
+  dueAt           DateTime?       @map("due_at") // Data limite por SLA
+  resolvedAt      DateTime?       @map("resolved_at")
+  closedAt        DateTime?       @map("closed_at")
+
+  // Resolução
+  resolution      String?         @db.Text
+  satisfactionScore Int?          @map("satisfaction_score") // 1-5
+
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  company         Company?        @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  contact         Contact?        @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  deal            Deal?           @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  owner           User            @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([companyId])
+  @@index([contactId])
+  @@index([dealId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([priority])
+  @@map("tickets")
+}
+
+enum TicketType {
+  SUPPORT
+  BILLING
+  TECHNICAL
+  FEATURE_REQUEST
+  BUG_REPORT
+  QUESTION
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+  CANCELLED
 }
 
 enum UserRole {
   VENDEDOR
   LIDER
   ADMIN
-}
-
-enum DealStage {
-  LEAD
-  QUALIFICATION
-  PROPOSAL
-  NEGOTIATION
-  CLOSED_WON
-  CLOSED_LOST
 }
 
 enum DealPriority {

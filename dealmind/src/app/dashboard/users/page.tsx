@@ -3,31 +3,18 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '~/trpc/server'
 import { TRPCError } from '@trpc/server'
+import { ChevronDown, Plus, Filter, List as ListIcon, Users, UserCog, Mail, ShieldCheck, Clock } from 'lucide-react'
 
-// Função helper para obter cor do role
-function getRoleColor(role: string | null) {
+function getRoleBadge(role: string | null) {
   switch (role) {
     case 'ADMIN':
-      return 'bg-purple-100 text-purple-700'
+      return <span className="inline-flex items-center rounded-md bg-purple-50 px-2 py-1 text-[10px] font-bold text-purple-700 uppercase tracking-tight border border-purple-200">Administrador</span>
     case 'LIDER':
-      return 'bg-blue-100 text-blue-700'
+      return <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-1 text-[10px] font-bold text-blue-700 uppercase tracking-tight border border-blue-200">Líder</span>
     case 'VENDEDOR':
-      return 'bg-green-100 text-green-700'
+      return <span className="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-[10px] font-bold text-green-700 uppercase tracking-tight border border-green-200">Vendedor</span>
     default:
-      return 'bg-gray-100 text-gray-700'
-  }
-}
-
-function getRoleLabel(role: string | null) {
-  switch (role) {
-    case 'ADMIN':
-      return 'Administrador'
-    case 'LIDER':
-      return 'Líder'
-    case 'VENDEDOR':
-      return 'Vendedor'
-    default:
-      return 'Não definido'
+      return <span className="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-[10px] font-bold text-gray-700 uppercase tracking-tight border border-gray-200">Não definido</span>
   }
 }
 
@@ -39,7 +26,6 @@ export default async function UsersPage() {
     redirect('/login')
   }
 
-  // Verificar se é admin
   let users: any[] = []
   let stats: any = null
   let errorMessage: string | null = null
@@ -54,166 +40,177 @@ export default async function UsersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="fixed inset-y-0 left-0 z-40 w-64 bg-gray-900 pt-16">
-          <div className="flex h-16 items-center justify-center border-b border-gray-800">
-            <Link href="/" className="text-2xl font-bold text-white">DealMind</Link>
-          </div>
-          <nav className="mt-6 px-4 space-y-1">
-            <Link href="/dashboard" className="flex items-center gap-3 rounded-lg px-4 py-3 text-gray-400 hover:bg-gray-800 hover:text-white">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
-              </svg>
-              Dashboard
-            </Link>
-            <Link href="/dashboard/companies" className="flex items-center gap-3 rounded-lg px-4 py-3 text-gray-400 hover:bg-gray-800 hover:text-white">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-              Empresas
-            </Link>
-            <Link href="/dashboard/users" className="flex items-center gap-3 rounded-lg bg-blue-600 px-4 py-3 text-white">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-              Usuários
-            </Link>
-          </nav>
-        </aside>
+    <div className="flex flex-col min-h-[calc(100vh-64px)] overflow-hidden">
+      {/* Top Title Bar */}
+      <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-[#001d3a] flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1 -ml-2 rounded transition-colors group">
+            Configurações de Usuários
+            <ChevronDown className="h-5 w-5 text-gray-400 group-hover:text-gray-600" />
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+            Gerenciar Cargos
+          </button>
+          <Link
+            href="/dashboard/users/new"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-[#ff5c35] rounded-md hover:bg-[#e04d2b] transition-colors shadow-sm"
+          >
+            Convidar usuário
+          </Link>
+        </div>
+      </div>
 
-        {/* Main Content */}
-        <div className="flex-1 pl-64">
-          <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-white px-6">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">Usuários</h1>
-              <p className="text-sm text-gray-500">Gerencie os usuários da sua empresa</p>
+      {/* Tabs Bar */}
+      <div className="bg-white border-b px-6 flex items-center justify-between h-12 min-h-[48px]">
+        <div className="flex items-center gap-6 h-full">
+          <button className="text-sm font-semibold text-[#001d3a] border-b-2 border-orange-500 h-full flex items-center">
+            Usuários ativos
+          </button>
+          <button className="text-sm font-medium text-gray-500 hover:text-gray-700 h-full flex items-center">
+            Convites pendentes
+          </button>
+          <button className="text-sm font-medium text-gray-500 hover:text-gray-700 h-full flex items-center">
+            Usuários removidos
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="bg-white border-b px-6 py-3 flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-md border border-gray-200">
+            <button className="p-1.5 rounded bg-white shadow-sm transition-all"><ListIcon className="h-4 w-4 text-[#001d3a]" /></button>
+          </div>
+
+          <div className="flex items-center gap-2 ml-2 flex-wrap">
+            <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-md">
+              Equipe (Todas) <ChevronDown className="h-3 w-3" />
+            </button>
+            <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+              Função <ChevronDown className="h-3 w-3" />
+            </button>
+            <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50">
+              Data de entrada <ChevronDown className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 ml-auto">
+          <button className="flex items-center gap-2 text-xs font-medium text-blue-600 hover:text-blue-700">
+            <Filter className="h-4 w-4" /> Filtros avançados
+          </button>
+        </div>
+      </div>
+
+      {/* Metrics Summary Bar */}
+      <div className="bg-white border-b px-6 py-6 overflow-x-auto">
+        <div className="flex items-center justify-between min-w-max gap-8 px-4">
+          <div className="text-center flex-1 pr-8">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1">TOTAL DE USUÁRIOS</p>
+            <h3 className="text-2xl font-bold text-[#001d3a]">{stats?.total || 0}</h3>
+          </div>
+          <div className="w-px h-12 bg-gray-200" />
+          <div className="text-center flex-1 px-8">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1 text-purple-600">ADMINISTRADORES</p>
+            <h3 className="text-2xl font-bold text-purple-700">{stats?.adms || 0}</h3>
+          </div>
+          <div className="w-px h-12 bg-gray-200" />
+          <div className="text-center flex-1 px-8">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1 text-blue-600">LÍDERES</p>
+            <h3 className="text-2xl font-bold text-blue-700">{stats?.lideres || 0}</h3>
+          </div>
+          <div className="w-px h-12 bg-gray-200" />
+          <div className="text-center flex-1 pl-8">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-1 text-green-600">VENDEDORES</p>
+            <h3 className="text-2xl font-bold text-green-700">{stats?.vendedors || 0}</h3>
+          </div>
+        </div>
+      </div>
+
+      {/* List Container */}
+      <div className="flex-1 bg-[#f5f8fa] p-6 overflow-auto">
+        {errorMessage && (
+          <div className="mb-6 rounded-lg bg-yellow-50 border border-yellow-200 p-4 flex items-center gap-3">
+            <ShieldCheck className="h-5 w-5 text-yellow-500" />
+            <p className="text-sm text-yellow-700 font-medium">{errorMessage}</p>
+          </div>
+        )}
+
+        {users.length === 0 && !errorMessage ? (
+          <div className="h-full flex flex-col items-center justify-center p-12 text-center bg-white rounded-xl border border-gray-200 shadow-sm">
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-50">
+              <Users className="h-10 w-10 text-gray-300" />
             </div>
+            <h3 className="text-xl font-bold text-[#001d3a]">Inicie sua equipe</h3>
+            <p className="mt-2 text-gray-500 max-w-sm">Convide seus colaboradores para começarem a utilizar o DealMind juntos.</p>
             <Link
               href="/dashboard/users/new"
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+              className="mt-6 px-6 py-3 rounded-md bg-[#ff5c35] text-white font-semibold hover:bg-[#e04d2b] transition-all"
             >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Convidar Usuário
+              Convidar agora
             </Link>
-          </header>
-
-          <main className="p-6">
-            {/* Erro de permissão */}
-            {errorMessage && (
-              <div className="mb-6 rounded-lg bg-yellow-50 border border-yellow-200 p-4">
-                <div className="flex items-center gap-2">
-                  <svg className="h-5 w-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <p className="text-sm text-yellow-700">{errorMessage}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Stats Cards */}
-            {stats && (
-              <div className="mb-6 grid gap-4 md:grid-cols-4">
-                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <p className="text-sm font-medium text-gray-500">Total de Usuários</p>
-                  <p className="mt-1 text-2xl font-bold text-gray-900">{stats.total}</p>
-                </div>
-                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <p className="text-sm font-medium text-gray-500">Administradores</p>
-                  <p className="mt-1 text-2xl font-bold text-purple-600">{stats.adms}</p>
-                </div>
-                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <p className="text-sm font-medium text-gray-500">Líderes</p>
-                  <p className="mt-1 text-2xl font-bold text-blue-600">{stats.lideres}</p>
-                </div>
-                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <p className="text-sm font-medium text-gray-500">Vendedores</p>
-                  <p className="mt-1 text-2xl font-bold text-green-600">{stats.vendedors}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Empty State */}
-            {users.length === 0 && !errorMessage ? (
-              <div className="rounded-xl border border-gray-200 bg-white p-12 text-center shadow-sm">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-                  <svg className="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900">Nenhum usuário ainda</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Comece convidando usuários para sua empresa.
-                </p>
-                <Link
-                  href="/dashboard/users/new"
-                  className="mt-6 inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  Convidar primeiro usuário
-                </Link>
-              </div>
-            ) : users.length > 0 ? (
-              /* Users List */
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="border-b border-gray-100 bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Usuário</th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Função</th>
-                        <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900">Criado em</th>
-                        <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {users.map((user) => (
-                        <tr key={user.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600 font-semibold">
-                                {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <p className="font-medium text-gray-900">{user.name || 'Sem nome'}</p>
-                                <p className="text-xs text-gray-500">{user.email}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getRoleColor(user.role)}`}>
-                              {getRoleLabel(user.role)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-500">
-                            {new Date(user.createdAt).toLocaleDateString('pt-BR')}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Link
-                                href={`/dashboard/users/${user.id}`}
-                                className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                              >
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </Link>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : null}
-          </main>
-        </div>
+          </div>
+        ) : users.length > 0 ? (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Membro da Equipe</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Função / Cargo</th>
+                    <th className="px-6 py-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Acesso desde</th>
+                    <th className="px-6 py-4 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {users.map((user) => (
+                    <tr key={user.id} className="hover:bg-blue-50/30 transition-colors group cursor-pointer">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-bold border border-blue-100 group-hover:bg-blue-100 transition-colors">
+                            {user.name ? user.name.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm font-bold text-[#001d3a]">{user.name || 'Sem nome'}</p>
+                            <p className="text-[10px] text-gray-400 font-mono tracking-tighter">ID: {user.id.slice(0, 8)}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Mail className="h-3.5 w-3.5 text-gray-400" />
+                          {user.email}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getRoleBadge(user.role)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5 text-gray-300" />
+                          {new Date(user.createdAt).toLocaleDateString('pt-BR')}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Link
+                            href={`/dashboard/users/${user.id}`}
+                            className="rounded-lg p-2 text-gray-400 hover:bg-white hover:text-[#0091ae] hover:shadow-sm transition-all"
+                          >
+                            <UserCog className="h-4 w-4" />
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )
