@@ -43,8 +43,8 @@ export function Sidebar() {
                             key={item.href}
                             href={item.href}
                             className={`flex items-center gap-3 px-3 py-3 rounded-md transition-all group ${isActive
-                                    ? 'bg-slate-700/50 text-white'
-                                    : 'hover:bg-slate-700/30 hover:text-white'
+                                ? 'bg-slate-700/50 text-white'
+                                : 'hover:bg-slate-700/30 hover:text-white'
                                 }`}
                         >
                             <item.icon className={`w-5 h-5 min-w-[20px] ${isActive ? 'text-orange-400' : 'text-slate-400 group-hover:text-white'}`} />
