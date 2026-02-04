@@ -13,9 +13,16 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    // N8N Configuration
-    N8N_WEBHOOK_URL: z.string().url(),
-    N8N_WEBHOOK_SECRET: z.string().min(32),
+    // OpenAI Configuration (replaces N8N for conversation analysis)
+    // Uses OpenRouter as API proxy (compatible with OpenAI SDK)
+    OPENROUTER_API_KEY: z.string().min(1).optional(),
+    OPENROUTER_BASE_URL: z.string().url().optional(),
+    OPENAI_API_KEY: z.string().min(1).optional(),
+    // N8N Configuration (optional - legacy, can be removed)
+    N8N_WEBHOOK_URL: z.string().url().optional(),
+    N8N_WEBHOOK_SECRET: z.string().optional(),
+    // Public base URL for callbacks (required when N8N is remote)
+    APP_PUBLIC_URL: z.string().url().optional(),
   },
 
   /**
@@ -39,9 +46,14 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    // N8N Configuration
+    // OpenAI/OpenRouter Configuration
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+    OPENROUTER_BASE_URL: process.env.OPENROUTER_BASE_URL,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    // N8N Configuration (optional)
     N8N_WEBHOOK_URL: process.env.N8N_WEBHOOK_URL,
     N8N_WEBHOOK_SECRET: process.env.N8N_WEBHOOK_SECRET,
+    APP_PUBLIC_URL: process.env.APP_PUBLIC_URL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

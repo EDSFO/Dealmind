@@ -109,6 +109,7 @@ export const conversationRouter = createTRPCRouter({
               // Sender info is stored as type/id, resolve dynamically on client
             },
           },
+          insight: true,
         },
       });
     }),
@@ -206,9 +207,9 @@ export const conversationRouter = createTRPCRouter({
         },
       });
 
-      // Enviar para N8N para processamento assíncrono (Story 3.5)
-      const { sendToN8N } = await import("~/server/lib/n8n");
-      await sendToN8N({
+      // Analisar com OpenAI (substitui N8N)
+      const { analyzeConversation } = await import("~/server/lib/openai-analyzer");
+      await analyzeConversation({
         conversationId: conversation.id,
         tenantId: conversation.tenantId,
         transcriptionText: conversation.transcriptionText ?? "",
@@ -216,9 +217,66 @@ export const conversationRouter = createTRPCRouter({
         contactId: conversation.contactId ?? undefined,
         subject: conversation.subject ?? undefined,
         conversationDate: conversation.conversationDate ?? undefined,
-      }).catch((error) => {
-        console.error("[Conversation] Failed to send to N8N:", error);
-        // Don't throw - conversation is created, just log the error
+      }).then(async (result) => {
+        if (result.success && result.insights) {
+          // Create insight from OpenAI analysis
+          await db.insight.upsert({
+            where: { conversationId: conversation.id },
+            create: {
+              conversationId: conversation.id,
+              interests: result.insights.interests || [],
+              objections: result.insights.objections || [],
+              commitments: result.insights.commitments || [],
+              progressSignals: result.insights.progressSignals || [],
+              riskSignals: result.insights.riskSignals || [],
+              nextActions: result.insights.nextActions || [],
+              summary: result.insights.summary,
+              extractedData: result.insights.extractedData || null,
+            },
+            update: {
+              interests: result.insights.interests || [],
+              objections: result.insights.objections || [],
+              commitments: result.insights.commitments || [],
+              progressSignals: result.insights.progressSignals || [],
+              riskSignals: result.insights.riskSignals || [],
+              nextActions: result.insights.nextActions || [],
+              summary: result.insights.summary,
+              extractedData: result.insights.extractedData || null,
+            },
+          });
+
+          // Process extracted data for CRM
+          if (result.insights.extractedData) {
+            const { processExtractedData } = await import("~/server/lib/crm-extractor");
+            await processExtractedData(
+              db,
+              conversation.tenantId,
+              userId,
+              conversation.id,
+              result.insights.extractedData
+            );
+          }
+
+          // Update conversation status
+          await db.conversation.update({
+            where: { id: conversation.id },
+            data: { processingStatus: "COMPLETED" },
+          });
+
+          console.log("[Conversation] OpenAI analysis complete:", conversation.id);
+        } else {
+          throw new Error(result.error || "Analysis failed");
+        }
+      }).catch(async (error) => {
+        console.error("[Conversation] OpenAI analysis failed:", error);
+        // Mark as failed but don't throw - conversation is still created
+        await db.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            processingStatus: "FAILED",
+            errorReason: error instanceof Error ? error.message : "Unknown error",
+          },
+        });
       });
 
       return conversation;

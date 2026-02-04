@@ -26,6 +26,8 @@
     "clsx": "^2.1.1",
     "lucide-react": "^0.563.0",
     "next": "^15.2.3",
+    "openai": "^6.17.0",
+    "playwright": "^1.58.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "server-only": "^0.0.1",
