@@ -1,5 +1,9 @@
 # Claude Code
 .claude/
+.claude/settings.local.json
+
+# Development docs (temporary/process files)
+_bmad-output/
 
 # Dependencies
 node_modules/
@@ -33,3 +37,8 @@ npm-debug.log*
 
 # MCP temporary files
 mcp-config-update.json
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
