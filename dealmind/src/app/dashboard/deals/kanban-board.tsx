@@ -18,13 +18,13 @@ import {
 import { cn } from '~/lib/utils'
 
 const DEAL_STAGES = [
-  { key: 'LEAD', label: 'Oportunidade de negócio', color: 'bg-white' },
-  { key: 'QUALIFICATION', label: 'Em diagnóstico', color: 'bg-white' },
-  { key: 'PROPOSAL', label: 'Elaboração de Proposta', color: 'bg-white' },
-  { key: 'NEGOTIATION', label: 'Em negociação', color: 'bg-white' },
-  { key: 'CONTRACTING', label: 'Contratação', color: 'bg-white' },
-  { key: 'CLOSED_WON', label: 'Negócio fechado', color: 'bg-white' },
-  { key: 'CLOSED_LOST', label: 'Negócio perdido', color: 'bg-white' },
+  { key: 'lead', label: 'Oportunidade de negócio', color: 'bg-white' },
+  { key: 'qualification', label: 'Em diagnóstico', color: 'bg-white' },
+  { key: 'proposal', label: 'Elaboração de Proposta', color: 'bg-white' },
+  { key: 'negotiation', label: 'Em negociação', color: 'bg-white' },
+  { key: 'contracting', label: 'Contratação', color: 'bg-white' },
+  { key: 'closed_won', label: 'Negócio fechado', color: 'bg-white' },
+  { key: 'closed_lost', label: 'Negócio perdido', color: 'bg-white' },
 ] as const
 
 function formatCurrency(value: number): string {
@@ -44,7 +44,7 @@ interface Deal {
   id: string
   title: string
   value: number
-  stage: string
+  stage: { key: string } | null
   priority: string
   expectedClose: string | null
   createdAt?: string
@@ -64,7 +64,7 @@ export default function KanbanBoard({ initialDeals, users }: KanbanBoardProps) {
 
   const dealsByStage = useMemo(() => {
     return DEAL_STAGES.reduce((acc, stage) => {
-      acc[stage.key] = deals.filter((deal) => deal.stage === stage.key)
+      acc[stage.key] = deals.filter((deal) => deal.stage?.key === stage.key)
       return acc
     }, {} as Record<string, Deal[]>)
   }, [deals])
@@ -88,7 +88,7 @@ export default function KanbanBoard({ initialDeals, users }: KanbanBoardProps) {
     e.preventDefault()
     setDraggedOverStage(null)
 
-    if (!draggedDeal || draggedDeal.stage === stageKey) {
+    if (!draggedDeal || draggedDeal.stage?.key === stageKey) {
       setDraggedDeal(null)
       return
     }

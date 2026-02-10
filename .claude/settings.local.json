@@ -60,7 +60,15 @@
       "mcp__playwright__playwright_evaluate",
       "mcp__playwright__playwright_drag",
       "Bash(powershell:*)",
-      "mcp__playwright__playwright_post"
+      "mcp__playwright__playwright_post",
+      "Bash(tree:*)",
+      "mcp__n8n-mcp__search_nodes",
+      "mcp__n8n-mcp__get_node",
+      "Bash(ngrok:*)",
+      "Bash(grep:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   },
   "enableAllProjectMcpServers": true

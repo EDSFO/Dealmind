@@ -14,7 +14,6 @@ export async function createActivity(formData: FormData) {
   }
 
   const ctx = await createTRPCContext({
-    supabase,
     headers: new Headers(),
   })
   const caller = createCaller(ctx)
@@ -45,7 +44,6 @@ export async function completeActivity(activityId: string) {
   }
 
   const ctx = await createTRPCContext({
-    supabase,
     headers: new Headers(),
   })
   const caller = createCaller(ctx)

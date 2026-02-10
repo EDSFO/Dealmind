@@ -218,9 +218,14 @@ export async function sendToN8N(data: {
 
 /**
  * Get base URL for callbacks
- * Detects from environment or uses localhost in development
+ * Uses APP_PUBLIC_URL if set (for remote N8N), otherwise localhost
  */
 function getBaseUrl(): string {
+  // Use APP_PUBLIC_URL if configured (for remote N8N access)
+  if (env.APP_PUBLIC_URL) {
+    return env.APP_PUBLIC_URL;
+  }
+
   if (env.NODE_ENV === "production") {
     // In production, should be set via environment variable
     return process.env.NEXT_PUBLIC_APP_URL || "https://app.dealmind.com.br";

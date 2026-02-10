@@ -20,7 +20,6 @@ export async function updateDeal(dealId: string, field: string, value: any) {
   const { createTRPCContext } = await import('~/server/api/trpc')
 
   const ctx = await createTRPCContext({
-    supabase,
     headers: new Headers(),
   })
   const caller = createCaller(ctx)
@@ -60,9 +59,9 @@ export async function updateDealStage(formData: FormData) {
   }
 
   const dealId = formData.get('dealId') as string
-  const stage = formData.get('stage') as string
+  const stageKey = formData.get('stage') as string
 
-  if (!dealId || !stage) {
+  if (!dealId || !stageKey) {
     redirect('/dashboard/deals')
   }
 
@@ -71,13 +70,27 @@ export async function updateDealStage(formData: FormData) {
   const { createTRPCContext } = await import('~/server/api/trpc')
 
   const ctx = await createTRPCContext({
-    supabase,
     headers: new Headers(),
   })
   const caller = createCaller(ctx)
 
   try {
-    await caller.deal.updateStage({ id: dealId, stage: stage as any })
+    // Find the PipelineStage by key to get its ID
+    const { db } = ctx
+    const { ensureUser } = await import('~/server/lib/user')
+    const currentUser = await ensureUser(db, session)
+
+    const pipelineStage = await db.pipelineStage.findFirst({
+      where: {
+        tenantId: currentUser.tenantId,
+        key: stageKey,
+      },
+      select: { id: true },
+    })
+
+    if (pipelineStage) {
+      await caller.deal.updateStage({ id: dealId, stageId: pipelineStage.id })
+    }
   } catch (error) {
     console.error('Error updating deal stage:', error)
   }
@@ -99,7 +112,6 @@ export async function deleteDeal(dealId: string) {
   const { createTRPCContext } = await import('~/server/api/trpc')
 
   const ctx = await createTRPCContext({
-    supabase,
     headers: new Headers(),
   })
   const caller = createCaller(ctx)

@@ -6,22 +6,22 @@ import { updateDeal } from './actions'
 interface EditableFieldProps {
   label: string
   value: string | number | null | undefined
+  formattedValue?: string
   dealId: string
   field: string
   type?: 'text' | 'number' | 'textarea' | 'select'
   options?: { value: string; label: string }[]
-  format?: (value: any) => string
   multiline?: boolean
 }
 
 export default function EditableField({
   label,
   value,
+  formattedValue,
   dealId,
   field,
   type = 'text',
   options,
-  format = (v) => v,
   multiline = false,
 }: EditableFieldProps) {
   const [isEditing, setIsEditing] = useState(false)
@@ -117,8 +117,8 @@ export default function EditableField({
       <label className="text-sm font-medium text-gray-500 group-hover:text-gray-600">
         {label}
       </label>
-      <p className="text-gray-900">
-        {value !== null && value !== undefined ? format(value) : '-'}
+      <p className="text-gray-900 font-medium">
+        {formattedValue || (value !== null && value !== undefined ? String(value) : '-')}
       </p>
       <p className="text-xs text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
         Clique para editar

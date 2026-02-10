@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@openrouter/sdk": "^0.5.1",
     "pg": "^8.17.0"
   }
 }

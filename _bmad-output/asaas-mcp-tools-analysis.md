@@ -191,3 +191,5 @@ O MCP não precisa de uma tool para cada endpoint porque:
 **Última Atualização:** 2025-01-02
 
 
+
+

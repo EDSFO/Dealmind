@@ -5,9 +5,47 @@ import {
   verifyTimestamp,
   isValidCallbackPayload,
   type N8NCallbackPayload,
+  type N8NInsightData,
 } from "~/server/lib/n8n";
 import { env } from "~/env";
 import { processExtractedData } from "~/server/lib/crm-extractor";
+
+/**
+ * Validate if insights contain meaningful data
+ * Returns true if at least one field has valid data
+ */
+function hasValidInsights(insights: N8NInsightData | undefined | null): boolean {
+  if (!insights) {
+    return false;
+  }
+
+  // Check if at least one array field has items
+  const hasArrayData =
+    (Array.isArray(insights.interests) && insights.interests.length > 0) ||
+    (Array.isArray(insights.objections) && insights.objections.length > 0) ||
+    (Array.isArray(insights.commitments) && insights.commitments.length > 0) ||
+    (Array.isArray(insights.nextActions) && insights.nextActions.length > 0) ||
+    (Array.isArray(insights.progressSignals) && insights.progressSignals.length > 0) ||
+    (Array.isArray(insights.riskSignals) && insights.riskSignals.length > 0);
+
+  // Check if summary has content
+  const hasSummary =
+    typeof insights.summary === "string" && insights.summary.trim().length > 0;
+
+  // Check if extractedData has any meaningful data
+  const hasExtractedData =
+    insights.extractedData &&
+    typeof insights.extractedData === "object" &&
+    Object.keys(insights.extractedData).length > 0 &&
+    (
+      (insights.extractedData.company && Object.keys(insights.extractedData.company).length > 0) ||
+      (insights.extractedData.contact && Object.keys(insights.extractedData.contact).length > 0) ||
+      (insights.extractedData.deal && Object.keys(insights.extractedData.deal).length > 0) ||
+      (Array.isArray(insights.extractedData.participants) && insights.extractedData.participants.length > 0)
+    );
+
+  return hasArrayData || hasSummary || hasExtractedData;
+}
 
 /**
  * N8N Callback Webhook
@@ -106,58 +144,77 @@ export async function POST(request: Request) {
         break;
 
       case "COMPLETED":
-        processingStatus = "COMPLETED";
-        // Create or update insight
-        if (insights) {
-          await db.insight.upsert({
-            where: { conversationId: conversation_id },
-            create: {
-              conversationId: conversation_id,
-              interests: insights.interests || [],
-              objections: insights.objections || [],
-              commitments: insights.commitments || [],
-              progressSignals: insights.progressSignals || [],
-              riskSignals: insights.riskSignals || [],
-              nextActions: insights.nextActions || [],
-              summary: insights.summary,
-              extractedData: insights.extractedData || null,
-            },
-            update: {
-              interests: insights.interests || [],
-              objections: insights.objections || [],
-              commitments: insights.commitments || [],
-              progressSignals: insights.progressSignals || [],
-              riskSignals: insights.riskSignals || [],
-              nextActions: insights.nextActions || [],
-              summary: insights.summary,
-              extractedData: insights.extractedData || null,
+        // Validate that insights are present and contain meaningful data
+        if (!hasValidInsights(insights)) {
+          // If status is COMPLETED but insights are empty/invalid, treat as FAILED
+          processingStatus = "FAILED";
+          await db.conversation.update({
+            where: { id: conversation_id },
+            data: {
+              processingStatus,
+              errorReason: "N8N retornou status COMPLETED mas sem insights válidos (output vazio ou inválido)",
             },
           });
+          console.error(
+            "[N8N Callback] COMPLETED status with empty/invalid insights, marked as FAILED:",
+            conversation_id,
+            "Insights received:",
+            JSON.stringify(insights)
+          );
+          break;
+        }
 
-          // Process extracted data to create/update CRM records
-          if (insights.extractedData) {
-            const crmResult = await processExtractedData(
-              db,
-              tenant_id,
-              conversation.userId,
-              conversation_id,
-              insights.extractedData
+        processingStatus = "COMPLETED";
+        // Create or update insight
+        await db.insight.upsert({
+          where: { conversationId: conversation_id },
+          create: {
+            conversationId: conversation_id,
+            interests: insights.interests || [],
+            objections: insights.objections || [],
+            commitments: insights.commitments || [],
+            progressSignals: insights.progressSignals || [],
+            riskSignals: insights.riskSignals || [],
+            nextActions: insights.nextActions || [],
+            summary: insights.summary,
+            extractedData: insights.extractedData || null,
+          },
+          update: {
+            interests: insights.interests || [],
+            objections: insights.objections || [],
+            commitments: insights.commitments || [],
+            progressSignals: insights.progressSignals || [],
+            riskSignals: insights.riskSignals || [],
+            nextActions: insights.nextActions || [],
+            summary: insights.summary,
+            extractedData: insights.extractedData || null,
+          },
+        });
+
+        // Process extracted data to create/update CRM records
+        if (insights.extractedData) {
+          const crmResult = await processExtractedData(
+            db,
+            tenant_id,
+            conversation.userId,
+            conversation_id,
+            insights.extractedData
+          );
+
+          if (crmResult.success) {
+            console.log(
+              "[N8N Callback] CRM records updated:",
+              JSON.stringify(crmResult)
             );
-
-            if (crmResult.success) {
-              console.log(
-                "[N8N Callback] CRM records updated:",
-                JSON.stringify(crmResult)
-              );
-            } else {
-              console.log(
-                "[N8N Callback] CRM update skipped:",
-                crmResult.message,
-                `(${crmResult.skippedReason})`
-              );
-            }
+          } else {
+            console.log(
+              "[N8N Callback] CRM update skipped:",
+              crmResult.message,
+              `(${crmResult.skippedReason})`
+            );
           }
         }
+
         await db.conversation.update({
           where: { id: conversation_id },
           data: { processingStatus },

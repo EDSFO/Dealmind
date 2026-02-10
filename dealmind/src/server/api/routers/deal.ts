@@ -170,6 +170,14 @@ export const dealRouter = createTRPCRouter({
               messages: {
                 orderBy: { createdAt: "asc" },
               },
+              insight: true,
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
             },
             orderBy: { updatedAt: "desc" },
           },

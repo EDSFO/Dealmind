@@ -273,3 +273,5 @@ O projeto já usa Supabase diretamente via `@supabase/ssr`:
 **Última Atualização:** 2025-01-02
 
 
+
+

@@ -1,6 +1,49 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  /* HubSpot Inspired Color Palette */
+  --color-hubspot-blue: #001d3a;
+  --color-hubspot-dark: #00142c;
+  --color-hubspot-orange: #ff5c35;
+  --color-hubspot-orange-dark: #e04d2b;
+  --color-hubspot-bg: #f5f8fa;
+  --color-hubspot-border: #cbd6e2;
+  --color-hubspot-text: #33475b;
+  --color-hubspot-link: #0091ae;
+
+  /* Premium Gradients */
+  --bg-gradient-premium: linear-gradient(135deg, var(--color-hubspot-blue) 0%, #002d5a 100%);
+  --bg-gradient-accent: linear-gradient(135deg, var(--color-hubspot-orange) 0%, #ff7a59 100%);
+
+  /* Shadows */
+  --shadow-premium: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-premium-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+
+  /* Fonts */
+  --font-sans: "Inter", var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-hubspot-bg text-hubspot-text antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-hubspot-blue font-bold tracking-tight;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 rounded-md font-semibold text-white bg-hubspot-orange hover:bg-hubspot-orange-dark shadow-sm transition-all active:scale-95;
+  }
+
+  .card-premium {
+    @apply bg-white rounded-xl border border-gray-200 shadow-premium hover:shadow-premium-hover transition-all duration-300;
+  }
+
+  .glass-panel {
+    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+  }
 }
