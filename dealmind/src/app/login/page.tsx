@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { createClient } from '~/lib/supabase/client'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 export default function LoginPage() {
@@ -15,12 +14,48 @@ export default function LoginPage() {
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
 
-  const router = useRouter()
   const supabase = createClient()
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     return re.test(email)
+  }
+
+  const syncServerSession = async (accessToken: string, refreshToken: string) => {
+    const response = await withTimeout(
+      fetch('/api/auth/sync-session', {
+        method: 'POST',
+        credentials: 'include',
+        cache: 'no-store',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          accessToken,
+          refreshToken,
+        }),
+      }),
+      10000
+    )
+
+    if (!response.ok) {
+      throw new Error('SESSION_SYNC_FAILED')
+    }
+  }
+
+  const withTimeout = async <T,>(promise: Promise<T>, ms: number): Promise<T> => {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error('LOGIN_TIMEOUT'))
+      }, ms)
+    })
+
+    try {
+      return await Promise.race([promise, timeoutPromise])
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId)
+    }
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -45,41 +80,77 @@ export default function LoginPage() {
 
     setLoading(true)
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      const { data, error } = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email,
+          password,
+        }),
+        15000
+      )
 
-    if (error) {
-      // Traduzir erros comuns do Supabase
-      let errorMessage = error.message
-      if (error.message.includes('Invalid login credentials')) {
-        errorMessage = 'Email ou senha incorretos'
-      } else if (error.message.includes('Email not confirmed')) {
-        errorMessage = 'Por favor, confirme seu email antes de fazer login'
-      } else if (error.message.includes('Too many requests')) {
-        errorMessage = 'Muitas tentativas. Por favor, aguarde alguns minutos'
+      if (error) {
+        // Traduzir erros comuns do Supabase
+        let errorMessage = error.message
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Email ou senha incorretos'
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Por favor, confirme seu email antes de fazer login'
+        } else if (error.message.includes('Too many requests')) {
+          errorMessage = 'Muitas tentativas. Por favor, aguarde alguns minutos'
+        } else if (
+          error.message.includes('Failed to fetch') ||
+          error.message.includes('NetworkError') ||
+          error.message.toLowerCase().includes('fetch')
+        ) {
+          errorMessage = 'Falha de conexão ao autenticar. Verifique internet/VPN e tente novamente.'
+        }
+        setError(errorMessage)
+        return
       }
-      setError(errorMessage)
-      setLoading(false)
-      return
-    }
 
-    router.push('/dashboard')
-    router.refresh()
+      const accessToken = data.session?.access_token
+      const refreshToken = data.session?.refresh_token
+
+      if (!accessToken || !refreshToken) {
+        setError('Login realizado, mas a sessão não foi criada corretamente. Tente novamente.')
+        return
+      }
+
+      await syncServerSession(accessToken, refreshToken)
+      window.location.href = '/dashboard'
+    } catch (err) {
+      if (err instanceof Error && err.message === 'LOGIN_TIMEOUT') {
+        setError('A autenticação demorou demais. Verifique sua conexão e tente novamente.')
+      } else if (err instanceof Error && err.message === 'SESSION_SYNC_FAILED') {
+        setError('Não foi possível sincronizar sua sessão no servidor. Tente novamente.')
+      } else {
+        setError('Falha de conexão ao autenticar. Tente novamente em instantes.')
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSocialLogin = async (provider: 'google' | 'github') => {
     setLoading(true)
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
+    try {
+      const { error } = await withTimeout(
+        supabase.auth.signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+          },
+        }),
+        15000
+      )
 
-    if (error) {
-      setError('Erro ao fazer login com ' + (provider === 'google' ? 'Google' : 'GitHub'))
+      if (error) {
+        setError('Erro ao fazer login com ' + (provider === 'google' ? 'Google' : 'GitHub'))
+      }
+    } catch {
+      setError('Não foi possível conectar ao provedor de login. Tente novamente.')
+    } finally {
       setLoading(false)
     }
   }
