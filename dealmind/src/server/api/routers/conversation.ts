@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { ensureUser } from "~/server/lib/user";
+import { Prisma } from "../../../../generated/prisma";
 
 const MessageType = z.enum(["NOTE", "EMAIL", "CALL", "MEETING", "WHATSAPP"]);
 const ConversationSource = z.enum(["FIREFLIES", "WHATSAPP", "MANUAL"]);
@@ -36,7 +37,7 @@ export const conversationRouter = createTRPCRouter({
       }
 
       if (input?.status) {
-        where.status = input.status;
+        where.processingStatus = input.status;
       }
 
       return db.conversation.findMany({
@@ -231,7 +232,9 @@ export const conversationRouter = createTRPCRouter({
               riskSignals: result.insights.riskSignals || [],
               nextActions: result.insights.nextActions || [],
               summary: result.insights.summary,
-              extractedData: result.insights.extractedData || null,
+              extractedData: result.insights.extractedData
+                ? (result.insights.extractedData as Prisma.InputJsonValue)
+                : Prisma.JsonNull,
             },
             update: {
               interests: result.insights.interests || [],
@@ -241,7 +244,9 @@ export const conversationRouter = createTRPCRouter({
               riskSignals: result.insights.riskSignals || [],
               nextActions: result.insights.nextActions || [],
               summary: result.insights.summary,
-              extractedData: result.insights.extractedData || null,
+              extractedData: result.insights.extractedData
+                ? (result.insights.extractedData as Prisma.InputJsonValue)
+                : Prisma.JsonNull,
             },
           });
 

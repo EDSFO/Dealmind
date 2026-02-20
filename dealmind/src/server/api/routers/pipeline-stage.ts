@@ -488,7 +488,7 @@ export const pipelineStageRouter = createTRPCRouter({
         probability: stage.probability,
         dealCount: stage._count.deals,
         totalValue: stage.deals.reduce((sum, deal) => {
-          const value = parseFloat(deal.value) || 0;
+          const value = Number(deal.value) || 0;
           return sum + value;
         }, 0),
       })),

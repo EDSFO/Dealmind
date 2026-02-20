@@ -161,7 +161,7 @@ export default function MessageList({ dealId, conversations, currentUserId, curr
               <div className="flex-1 p-6 overflow-y-auto space-y-6 bg-[#f8fafc]/50">
                 {activeConversation.messages?.map((msg: Message) => {
                   const isOwn = msg.senderId === currentUserId
-                  const typeInfo = MESSAGE_TYPES.find(t => t.value === msg.type) || MESSAGE_TYPES[0]
+                  const typeInfo = MESSAGE_TYPES.find(t => t.value === msg.type) ?? MESSAGE_TYPES[0]!
                   const Icon = typeInfo.icon
 
                   return (

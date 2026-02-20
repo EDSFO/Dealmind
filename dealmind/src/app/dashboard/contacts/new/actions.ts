@@ -12,7 +12,7 @@ export async function createContact(formData: FormData) {
     redirect('/login')
   }
 
-  const name = formData.get('name') as string
+  const fullName = formData.get('name') as string
   const email = formData.get('email') as string | null
   const phone = formData.get('phone') as string | null
   const company = formData.get('company') as string | null
@@ -20,7 +20,7 @@ export async function createContact(formData: FormData) {
   const source = formData.get('source') as string | null
   const notes = formData.get('notes') as string | null
 
-  if (!name) {
+  if (!fullName) {
     redirect('/dashboard/contacts/new')
   }
 
@@ -29,24 +29,46 @@ export async function createContact(formData: FormData) {
   const { createTRPCContext } = await import('~/server/api/trpc')
 
   const ctx = await createTRPCContext({
-    supabase,
     headers: new Headers(),
   })
   const caller = createCaller(ctx)
 
+  const [firstName, ...lastNameParts] = fullName.trim().split(/\s+/)
+  const lastName = lastNameParts.join(' ')
+
+  const sourceMap: Record<string, string> = {
+    WEBSITE: 'WEBSITE',
+    SOCIAL_MEDIA: 'SOCIAL_MEDIA',
+    REFERRAL: 'REFERRAL',
+    EVENT: 'EVENT',
+    ADVERTISING: 'ADVERTISING',
+    OUTBOUND: 'OUTBOUND',
+    OTHER: 'OTHER',
+    website: 'WEBSITE',
+    linkedin: 'SOCIAL_MEDIA',
+    instagram: 'SOCIAL_MEDIA',
+    indicação: 'REFERRAL',
+    evento: 'EVENT',
+    campanha: 'ADVERTISING',
+    frio: 'OUTBOUND',
+    outro: 'OTHER',
+  }
+
   try {
     await caller.contact.create({
-      name,
-      email: email || null,
-      phone: phone || null,
-      company: company || null,
-      position: position || null,
-      source: source || null,
-      notes: notes || null,
+      firstName: firstName ?? fullName,
+      lastName: lastName || undefined,
+      email: email || undefined,
+      mobilePhone: phone || undefined,
+      whatsapp: phone || undefined,
+      company: company || undefined,
+      position: position || undefined,
+      source: source ? (sourceMap[source] as any) : undefined,
+      internalNotes: notes || undefined,
     })
   } catch (error) {
     console.error('Error creating contact:', error)
-    return { error: 'Failed to create contact' }
+    redirect('/dashboard/contacts/new?error=true')
   }
 
   revalidatePath('/dashboard/contacts')

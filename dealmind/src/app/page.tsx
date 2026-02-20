@@ -35,12 +35,12 @@ export default function Home() {
 
             {/* CTA Buttons */}
             <div className="flex items-center space-x-4">
-              <Link
+              <a
                 href="/login"
                 className="text-gray-600 hover:text-blue-600 font-medium transition-colors"
               >
                 Entrar
-              </Link>
+              </a>
               <Link
                 href="/register"
                 className="bg-blue-600 text-white px-5 py-2 rounded-full font-medium hover:bg-blue-700 transition-colors"

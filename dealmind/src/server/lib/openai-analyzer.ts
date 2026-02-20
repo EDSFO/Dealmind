@@ -254,6 +254,8 @@ function cleanText(text: string | undefined): string | undefined {
 
 /**
  * Parse OpenAI response into structured insight data
+ * Supports the current flat JSON format produced by SYSTEM_PROMPT:
+ * { summary, interests, objections, commitments, nextActions, progressSignals, riskSignals, confidence, recommendation }
  */
 function parseAnalysisResponse(rawResponse: string, transcriptionText: string): N8NInsightData {
   try {
@@ -264,10 +266,9 @@ function parseAnalysisResponse(rawResponse: string, transcriptionText: string): 
       .replace(/^[a-zA-Z_]+\s*=/g, '')
       .trim();
 
-    // Try to parse the cleaned JSON response
     const parsed = JSON.parse(cleanResponse);
 
-    // Extract structured data from the response
+    // --- Current flat format (matches SYSTEM_PROMPT) ---
     const interests: string[] = [];
     const objections: string[] = [];
     const commitments: string[] = [];
@@ -275,85 +276,55 @@ function parseAnalysisResponse(rawResponse: string, transcriptionText: string): 
     const progressSignals: Array<{ signal: string; confidence: number }> = [];
     const riskSignals: Array<{ signal: string; severity: "low" | "medium" | "high" }> = [];
 
-    // Parse interests from analysis
-    if (parsed.informacoesCriticas?.doresProblemas) {
-      interests.push(...parsed.informacoesCriticas.doresProblemas);
+    // Direct keys from current prompt
+    if (Array.isArray(parsed.interests)) {
+      interests.push(...parsed.interests.filter((v: any) => typeof v === 'string' && v.length > 0));
     }
-    if (parsed.analisePorMetodologia) {
-      Object.values(parsed.analisePorMetodologia as Record<string, any>).forEach((method: any) => {
-        if (method?.gapsLacunas) {
-          method.gapsLacunas.forEach((gap: string) => {
-            if (!objections.includes(gap) && gap.length < 200) {
-              objections.push(gap);
-            }
+    if (Array.isArray(parsed.objections)) {
+      objections.push(...parsed.objections.filter((v: any) => typeof v === 'string' && v.length > 0));
+    }
+    if (Array.isArray(parsed.commitments)) {
+      commitments.push(...parsed.commitments.filter((v: any) => typeof v === 'string' && v.length > 0));
+    }
+    if (Array.isArray(parsed.nextActions)) {
+      nextActions.push(...parsed.nextActions.filter((v: any) => typeof v === 'string' && v.length > 0));
+    }
+
+    // progressSignals: [{signal, confidence}]
+    if (Array.isArray(parsed.progressSignals)) {
+      parsed.progressSignals.forEach((item: any) => {
+        if (item && typeof item.signal === 'string') {
+          progressSignals.push({
+            signal: item.signal,
+            confidence: typeof item.confidence === 'number' ? item.confidence : 0.7,
           });
         }
       });
     }
 
-    // Parse commitments
-    if (parsed.riscosDaOportunidade?.medios) {
-      parsed.riscosDaOportunidade.medios.forEach((risk: string) => {
-        if (!objections.includes(risk) && risk.length < 200) {
-          objections.push(risk);
+    // riskSignals: [{signal, severity}]
+    if (Array.isArray(parsed.riskSignals)) {
+      parsed.riskSignals.forEach((item: any) => {
+        if (item && typeof item.signal === 'string') {
+          riskSignals.push({
+            signal: item.signal,
+            severity: (item.severity === 'high' || item.severity === 'medium' || item.severity === 'low')
+              ? item.severity
+              : 'medium',
+          });
         }
       });
     }
 
-    // Parse next actions
-    if (parsed.planoDeAcao) {
-      if (parsed.planoDeAcao.acoesImediatas) {
-        parsed.planoDeAcao.acoesImediatas.forEach((action: any) => {
-          const actionText = typeof action === "string" ? action : action.acao || action.objetivo;
-          if (actionText && !nextActions.includes(actionText)) {
-            nextActions.push(actionText);
-          }
-        });
-      }
-      if (parsed.planoDeAcao.acaoDeCurtoPrazo) {
-        parsed.planoDeAcao.acaoDeCurtoPrazo.forEach((action: any) => {
-          const actionText = typeof action === "string" ? action : action.acao || action.objetivo;
-          if (actionText && !nextActions.includes(actionText)) {
-            nextActions.push(actionText);
-          }
-        });
-      }
-    }
-
-    // Parse progress signals from score
-    if (parsed.scoreGeralDaOportunidade) {
-      const score = parsed.scoreGeralDaOportunidade;
+    // Add recommendation as a progress signal if present
+    if (parsed.recommendation && typeof parsed.recommendation === 'string') {
       progressSignals.push({
-        signal: `Probabilidade de fechamento: ${score.probabilidadeFechamento || "N/A"}`,
-        confidence: parseConfidenceScore(score.probabilidadeFechamento),
-      });
-      progressSignals.push({
-        signal: `Recomendação: ${score.recomendacao || "N/A"}`,
-        confidence: 0.8,
+        signal: `Recomendação: ${parsed.recommendation}`,
+        confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.8,
       });
     }
 
-    // Parse risk signals
-    if (parsed.riscosDaOportunidade) {
-      if (parsed.riscosDaOportunidade.altos) {
-        parsed.riscosDaOportunidade.altos.forEach((risk: string) => {
-          riskSignals.push({ signal: risk, severity: "high" });
-        });
-      }
-      if (parsed.riscosDaOportunidade.medios) {
-        parsed.riscosDaOportunidade.medios.forEach((risk: string) => {
-          riskSignals.push({ signal: risk, severity: "medium" });
-        });
-      }
-      if (parsed.riscosDaOportunidade.baixos) {
-        parsed.riscosDaOportunidade.baixos.forEach((risk: string) => {
-          riskSignals.push({ signal: risk, severity: "low" });
-        });
-      }
-    }
-
-    // Generate summary from ejecutivo
-    const summary = parsed.resumoExecutivo || generateSummaryFromAnalysis(parsed);
+    const summary: string | undefined = parsed.summary || generateSummaryFromAnalysis(parsed);
 
     // Extract company/contact/deal info if mentioned
     const extractedData = extractEntitiesFromText(transcriptionText);
@@ -366,14 +337,14 @@ function parseAnalysisResponse(rawResponse: string, transcriptionText: string): 
       riskSignals: riskSignals.length > 0 ? riskSignals : undefined,
       nextActions: nextActions.length > 0 ? nextActions : undefined,
       summary,
-      extractedData: Object.keys(extractedData).length > 0 ? extractedData : undefined,
+      extractedData: extractedData ? extractedData : undefined,
     };
   } catch (error) {
     console.error("[OpenAI Analyzer] Failed to parse response:", error);
 
     // Return basic structure with raw text as summary
     return {
-      summary: rawResponse.substring(0, 1000),
+      summary: rawResponse.substring(0, 500),
     };
   }
 }
@@ -403,7 +374,7 @@ function parseConfidenceScore(percentageStr?: string): number {
 
   const match = String(percentageStr).match(/(\d+)/);
   if (match) {
-    return Math.min(1, Math.max(0, parseInt(match[1]) / 100));
+    return Math.min(1, Math.max(0, parseInt(match[1] ?? "0", 10) / 100));
   }
   return 0.5;
 }
@@ -435,12 +406,13 @@ function extractEntitiesFromText(text: string): N8NInsightData["extractedData"] 
 
   if (phones && phones.length > 0) {
     if (!result.contact) result.contact = {};
-    result.contact.whatsapp = phones[0];
+    result.contact.whatsapp = phones[0] ?? null;
   }
 
   // Check if we found any data
-  const hasData = (result.contact && Object.keys(result.contact).some(k => result.contact?.[k])) ||
-                  (result.company && Object.keys(result.company).some(k => result.company?.[k]));
+  const hasContactData = Boolean(result.contact) && Object.values(result.contact ?? {}).some((value) => Boolean(value));
+  const hasCompanyData = Boolean(result.company) && Object.values(result.company ?? {}).some((value) => Boolean(value));
+  const hasData = hasContactData || hasCompanyData;
 
   if (!hasData) {
     return undefined;

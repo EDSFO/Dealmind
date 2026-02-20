@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { ensureUser } from "~/server/lib/user";
+import { Prisma } from "../../../../generated/prisma";
 
 const TicketTypeSchema = z.enum([
   "SUPPORT",
@@ -238,7 +239,9 @@ export const ticketRouter = createTRPCRouter({
           priority: input.priority,
           status: input.status,
           source: input.source || null,
-          tags: input.tags || null,
+          tags: input.tags
+            ? (input.tags as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
         },
       });
     }),

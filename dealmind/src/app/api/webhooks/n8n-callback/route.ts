@@ -4,11 +4,11 @@ import {
   verifySignature,
   verifyTimestamp,
   isValidCallbackPayload,
-  type N8NCallbackPayload,
   type N8NInsightData,
 } from "~/server/lib/n8n";
 import { env } from "~/env";
 import { processExtractedData } from "~/server/lib/crm-extractor";
+import { Prisma } from "../../../../../generated/prisma";
 
 /**
  * Validate if insights contain meaningful data
@@ -34,7 +34,7 @@ function hasValidInsights(insights: N8NInsightData | undefined | null): boolean 
 
   // Check if extractedData has any meaningful data
   const hasExtractedData =
-    insights.extractedData &&
+    Boolean(insights.extractedData) &&
     typeof insights.extractedData === "object" &&
     Object.keys(insights.extractedData).length > 0 &&
     (
@@ -58,6 +58,14 @@ function hasValidInsights(insights: N8NInsightData | undefined | null): boolean 
  */
 export async function POST(request: Request) {
   const startTime = Date.now();
+  const webhookSecret = env.N8N_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    return NextResponse.json(
+      { error: "Webhook secret is not configured" },
+      { status: 500 }
+    );
+  }
 
   // Get signature headers
   const signature = request.headers.get("x-webhook-signature");
@@ -77,7 +85,7 @@ export async function POST(request: Request) {
     const payload = JSON.parse(rawBody) as unknown;
 
     // Verify signature
-    if (!verifySignature(rawBody, signature, env.N8N_WEBHOOK_SECRET)) {
+    if (!verifySignature(rawBody, signature, webhookSecret)) {
       console.error("[N8N Callback] Invalid signature");
       return NextResponse.json(
         { error: "Invalid signature" },
@@ -131,7 +139,7 @@ export async function POST(request: Request) {
     }
 
     // Update conversation status based on callback status
-    let processingStatus: "PROCESSING" | "COMPLETED" | "FAILED" = "PENDING";
+    let processingStatus: "PROCESSING" | "COMPLETED" | "FAILED";
 
     switch (status) {
       case "PROCESSING":
@@ -165,40 +173,45 @@ export async function POST(request: Request) {
         }
 
         processingStatus = "COMPLETED";
+        const completedInsights = insights!;
         // Create or update insight
         await db.insight.upsert({
           where: { conversationId: conversation_id },
           create: {
             conversationId: conversation_id,
-            interests: insights.interests || [],
-            objections: insights.objections || [],
-            commitments: insights.commitments || [],
-            progressSignals: insights.progressSignals || [],
-            riskSignals: insights.riskSignals || [],
-            nextActions: insights.nextActions || [],
-            summary: insights.summary,
-            extractedData: insights.extractedData || null,
+            interests: completedInsights.interests || [],
+            objections: completedInsights.objections || [],
+            commitments: completedInsights.commitments || [],
+            progressSignals: completedInsights.progressSignals || [],
+            riskSignals: completedInsights.riskSignals || [],
+            nextActions: completedInsights.nextActions || [],
+            summary: completedInsights.summary,
+            extractedData: completedInsights.extractedData
+              ? (completedInsights.extractedData as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
           },
           update: {
-            interests: insights.interests || [],
-            objections: insights.objections || [],
-            commitments: insights.commitments || [],
-            progressSignals: insights.progressSignals || [],
-            riskSignals: insights.riskSignals || [],
-            nextActions: insights.nextActions || [],
-            summary: insights.summary,
-            extractedData: insights.extractedData || null,
+            interests: completedInsights.interests || [],
+            objections: completedInsights.objections || [],
+            commitments: completedInsights.commitments || [],
+            progressSignals: completedInsights.progressSignals || [],
+            riskSignals: completedInsights.riskSignals || [],
+            nextActions: completedInsights.nextActions || [],
+            summary: completedInsights.summary,
+            extractedData: completedInsights.extractedData
+              ? (completedInsights.extractedData as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
           },
         });
 
         // Process extracted data to create/update CRM records
-        if (insights.extractedData) {
+        if (completedInsights.extractedData) {
           const crmResult = await processExtractedData(
             db,
             tenant_id,
             conversation.userId,
             conversation_id,
-            insights.extractedData
+            completedInsights.extractedData
           );
 
           if (crmResult.success) {

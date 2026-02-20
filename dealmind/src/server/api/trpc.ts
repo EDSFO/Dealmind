@@ -7,6 +7,7 @@
  * need to use are documented accordingly near the end.
  */
 import { initTRPC } from "@trpc/server";
+import { TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 
@@ -115,4 +116,20 @@ export const publicProcedure = t.procedure.use(timingMiddleware);
  *
  * This is the base piece you use to build queries and mutations that require authentication.
  */
-export const protectedProcedure = t.procedure.use(timingMiddleware);
+const enforceAuth = t.middleware(async ({ ctx, next }) => {
+  if (!ctx.session?.user) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Usuário não autenticado",
+    });
+  }
+
+  return next({
+    ctx: {
+      ...ctx,
+      session: ctx.session,
+    },
+  });
+});
+
+export const protectedProcedure = t.procedure.use(timingMiddleware).use(enforceAuth);

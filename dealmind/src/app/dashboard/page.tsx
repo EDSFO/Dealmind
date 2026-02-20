@@ -11,7 +11,9 @@ import {
   MessageSquare,
   TrendingUp,
   Clock,
-  ChevronRight
+  ChevronRight,
+  User,
+  Smile
 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 
@@ -55,11 +57,13 @@ export default async function DashboardPage() {
   let pipelineStats: any = null
   let contactStats: any = null
   let recentDeals: any[] = []
+  let analyticsData: any = null
 
   try {
     deals = await caller.deal.list()
     pipelineStats = await caller.deal.pipelineStats()
     contactStats = await caller.contact.stats()
+    analyticsData = await caller.user.getAnalytics({ timeRange: '7days' })
     recentDeals = deals.slice(0, 5)
   } catch (error) {
     console.error('Error fetching dashboard data:', error)
@@ -102,6 +106,8 @@ export default async function DashboardPage() {
     },
   ]
 
+  const ametrics = analyticsData?.metrics || { performance: 0, successPrediction: 0, customerMood: 0 }
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
       {/* Welcome Section */}
@@ -142,6 +148,92 @@ export default async function DashboardPage() {
             <h3 className="text-2xl font-bold text-[#001d3a] mt-1">{metric.value}</h3>
           </div>
         ))}
+      </div>
+
+      {/* Analytics KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        {/* Performance Card */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden">
+          <div className="flex items-center gap-2 mb-6">
+            <TrendingUp className="w-5 h-5 text-blue-500" />
+            <h3 className="text-sm font-bold text-gray-500">Performance (IA)</h3>
+          </div>
+
+          <div className="flex items-end justify-between mb-2">
+            <span className="text-xs font-bold text-blue-500">0</span>
+            <span className="text-3xl font-bold text-gray-800">{ametrics.performance} <span className="text-lg text-gray-400 font-medium">/ 10</span></span>
+            <span className="text-xs font-bold text-gray-400">10</span>
+          </div>
+
+          {/* Custom Slider Visualization */}
+          <div className="relative h-2 bg-gray-100 rounded-full w-full">
+            <div
+              className="absolute top-0 left-0 h-full bg-blue-600 rounded-full shadow-[0_0_10px_rgba(37,99,235,0.3)] transition-all duration-1000 ease-out"
+              style={{ width: `${(ametrics.performance / 10) * 100}%` }}
+            />
+            <div
+              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-4 border-blue-600 rounded-full shadow-md transition-all duration-1000 ease-out"
+              style={{ left: `${(ametrics.performance / 10) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Success Prediction Card */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center gap-2 mb-6">
+            <User className="w-5 h-5 text-blue-500" />
+            <h3 className="text-sm font-bold text-gray-500">Previsão de Sucesso</h3>
+          </div>
+
+          <div className="flex items-end justify-between">
+            {/* Dot Scale */}
+            <div className="flex gap-2 mb-1">
+              {[1, 2, 3, 4, 5].map((dot) => (
+                <div
+                  key={dot}
+                  className={cn(
+                    "w-5 h-5 rounded-full transition-all duration-500",
+                    dot <= ametrics.successPrediction
+                      ? "bg-blue-600 shadow-sm scale-110"
+                      : "border-2 border-gray-200 bg-white"
+                  )}
+                  style={{ transitionDelay: `${dot * 100}ms` }}
+                />
+              ))}
+            </div>
+            <span className="text-3xl font-bold text-gray-800">{ametrics.successPrediction}</span>
+          </div>
+        </div>
+
+        {/* Customer Mood Card */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+          <div className="flex items-center gap-2 mb-6">
+            <Smile className="w-5 h-5 text-blue-500" />
+            <h3 className="text-sm font-bold text-gray-500">Humor dos Clientes</h3>
+          </div>
+
+          <div className="flex items-end justify-between mb-2">
+            <Smile className="w-4 h-4 text-gray-400" />
+            <Smile className="w-4 h-4 text-gray-400" />
+            <Smile className="w-4 h-4 text-gray-400" />
+          </div>
+
+          {/* Gradient Bar Visualization */}
+          <div className="relative h-2 w-full bg-gradient-to-r from-red-200 via-yellow-200 to-green-200 rounded-full opacity-30">
+            {/* Background Ref */}
+          </div>
+          <div className="relative h-2 w-full -mt-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-600 rounded-full relative transition-all duration-1000 ease-out"
+              style={{ width: `${(ametrics.customerMood / 5) * 100}%` }}
+            >
+            </div>
+          </div>
+          <div className="flex justify-end mt-2">
+            <span className="text-3xl font-bold text-gray-800">{ametrics.customerMood}</span>
+          </div>
+        </div>
       </div>
 
       {/* Quick Actions Grid */}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 import { createClient } from '~/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -8,19 +8,21 @@ import { z } from 'zod'
 import { api } from '~/trpc/react'
 
 // Validation schema for registration without company
-const registrationSchema = z.object({
+const registrationBaseSchema = z.object({
   name: z.string().min(2, 'Seu nome é obrigatório'),
   email: z.string().email('E-mail inválido'),
   password: z.string().min(8, 'A senha deve ter pelo menos 8 caracteres'),
   confirmPassword: z.string()
-}).refine(data => data.password === data.confirmPassword, {
+})
+
+const registrationSchema = registrationBaseSchema.refine(data => data.password === data.confirmPassword, {
   message: 'As senhas não coincidem',
   path: ['confirmPassword']
 })
 
 type RegistrationFormData = z.infer<typeof registrationSchema>
 
-export default function RegisterPage() {
+function RegisterPageContent() {
   const searchParams = useSearchParams()
   const inviteToken = searchParams.get('invite')
 
@@ -70,7 +72,7 @@ export default function RegisterPage() {
 
   const validateField = (name: string, value: string) => {
     try {
-      const testSchema = registrationSchema.shape[name as keyof typeof registrationSchema]
+      const testSchema = registrationBaseSchema.shape[name as keyof typeof registrationBaseSchema.shape]
       if (testSchema) {
         testSchema.parse(value)
         setErrors(prev => ({ ...prev, [name]: '' }))
@@ -417,3 +419,16 @@ export default function RegisterPage() {
     </div>
   )
 }
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <RegisterPageContent />
+    </Suspense>
+  )
+}
+

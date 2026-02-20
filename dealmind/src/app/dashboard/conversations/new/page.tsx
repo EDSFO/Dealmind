@@ -15,7 +15,6 @@ export default async function NewConversationPage() {
 
   // Fetch contacts and deals for dropdowns
   const ctx = await createTRPCContext({
-    supabase,
     headers: new Headers(),
   })
   const caller = createCaller(ctx)
@@ -103,7 +102,7 @@ export default async function NewConversationPage() {
                         <option value="">Selecione um contato (opcional)</option>
                         {contacts.map((contact) => (
                           <option key={contact.id} value={contact.id}>
-                            {contact.name} {contact.email ? `(${contact.email})` : ''}
+                            {[contact.firstName, contact.lastName].filter(Boolean).join(' ') || contact.name || 'Sem nome'} {contact.email ? `(${contact.email})` : ''}
                           </option>
                         ))}
                       </select>

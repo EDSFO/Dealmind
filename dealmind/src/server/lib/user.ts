@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { PrismaClient } from "../../generated/prisma";
+import { PrismaClient } from "../../../generated/prisma";
 
 /**
  * Ensures a user exists in the database.

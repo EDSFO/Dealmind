@@ -12,7 +12,9 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  ChevronDown
+  ChevronDown,
+  User,
+  Calendar,
 } from 'lucide-react'
 import { cn } from '~/lib/utils'
 
@@ -203,7 +205,7 @@ function ActivityItem({
   currentUserId: string
   onComplete: (id: string) => void
 }) {
-  const typeInfo = ACTIVITY_TYPES.find(t => t.value === activity.type) || ACTIVITY_TYPES[4]
+  const typeInfo = ACTIVITY_TYPES.find(t => t.value === activity.type.toLowerCase()) ?? ACTIVITY_TYPES[4]!
   const isOwner = activity.user?.id === currentUserId
   const isOverdue = activity.dueAt && new Date(activity.dueAt) < new Date() && activity.status !== 'COMPLETED'
   const isCompleted = activity.status === 'COMPLETED'

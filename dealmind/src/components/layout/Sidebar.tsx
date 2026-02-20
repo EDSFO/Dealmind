@@ -9,17 +9,21 @@ import {
     MessageSquare,
     Building2,
     Settings,
-    Target
+    Target,
+    LifeBuoy,
+    Calendar
 } from 'lucide-react'
 
 const navItems = [
     { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { href: '/dashboard/contacts', icon: Users, label: 'Contatos' },
+    { href: '/dashboard/activities', icon: Calendar, label: 'Atividades' },
     { href: '/dashboard/deals', icon: Target, label: 'Negócios' },
     { href: '/dashboard/companies', icon: Building2, label: 'Empresas' },
+    { href: '/dashboard/tickets', icon: LifeBuoy, label: 'Tickets' },
     { href: '/dashboard/conversations', icon: MessageSquare, label: 'Conversas' },
     { href: '/dashboard/analytics', icon: LayoutDashboard, label: 'Análise' },
-    { href: '/dashboard/users', icon: Settings, label: 'Configurações' },
+    { href: '/dashboard/users', icon: Users, label: 'Equipe' },
 ]
 
 export function Sidebar() {
@@ -63,10 +67,10 @@ export function Sidebar() {
             </nav>
 
             <div className="p-4 border-t border-slate-800/50 space-y-2">
-                <button className="flex items-center gap-3 w-full px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800/40 rounded-lg transition-all group">
+                <Link href="/dashboard/settings" className="flex items-center gap-3 w-full px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800/40 rounded-lg transition-all group">
                     <Settings className="w-5 h-5 min-w-[20px] group-hover:rotate-45 transition-transform duration-500" />
                     <span className="hidden lg:block text-[13px] font-medium">Configurações</span>
-                </button>
+                </Link>
                 <div className="pt-2 px-3">
                     <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
                         <div className="h-full bg-hubspot-orange w-2/3 rounded-full shadow-[0_0_8px_rgba(255,92,53,0.3)]" />

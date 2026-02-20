@@ -13,19 +13,26 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { dealId, stage } = body
+    const { dealId, stageId, stageKey, stage } = body
 
-    if (!dealId || !stage) {
+    if (!dealId || (!stageId && !stageKey && !stage)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
     const ctx = await createTRPCContext({
-      supabase,
       headers: new Headers(),
     })
     const caller = createCaller(ctx)
 
-    await caller.deal.updateStage({ id: dealId, stage })
+    const resolvedStageId = stageId ?? (
+      await caller.pipelineStage.byKey({ key: stageKey ?? stage })
+    )?.id
+
+    if (!resolvedStageId) {
+      return NextResponse.json({ error: 'Invalid stage' }, { status: 400 })
+    }
+
+    await caller.deal.updateStage({ id: dealId, stageId: resolvedStageId })
 
     return NextResponse.json({ success: true })
   } catch (error) {

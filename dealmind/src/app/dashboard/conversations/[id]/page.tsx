@@ -21,7 +21,7 @@ import {
   ArrowRight,
 } from 'lucide-react'
 import RetryButton from './retry-button'
-
+import CreateActionsButton from './create-actions-button'
 function formatDate(date: Date | string | null): string {
   if (!date) return '-'
   return new Date(date).toLocaleDateString('pt-BR', {
@@ -120,7 +120,60 @@ export default async function ConversationDetailPage({
     )
   }
 
-  const insight = conversation?.insight || null
+  let insight = conversation?.insight || null
+
+  // Fix: the old (broken) parser stored the full AI JSON inside `summary` 
+  // while leaving interests/objections/etc as empty arrays.
+  // We need to detect this and re-extract the fields.
+  if (insight) {
+    const hasNoData =
+      (!insight.interests || (insight.interests as any[]).length === 0) &&
+      (!insight.objections || (insight.objections as any[]).length === 0) &&
+      (!insight.nextActions || (insight.nextActions as any[]).length === 0)
+
+    if (hasNoData && insight.summary) {
+      // summary might be a string (JSON text) or an object (Prisma Json field already parsed)
+      let parsedFromSummary: any = null
+
+      if (typeof insight.summary === 'object' && insight.summary !== null) {
+        // Prisma already parsed the JSON object
+        const summaryObj = insight.summary as any
+        // Case 1: summary is itself the full analysis object
+        if (summaryObj.interests || summaryObj.objections || summaryObj.nextActions) {
+          parsedFromSummary = summaryObj
+        }
+        // Case 2: summary.summary is the real summary string (nested)
+        else if (summaryObj.summary && typeof summaryObj.summary === 'string') {
+          parsedFromSummary = summaryObj
+        }
+      } else if (typeof insight.summary === 'string') {
+        // summary is a JSON string — try to parse it
+        try {
+          const jsonMatch = (insight.summary as string).match(/\{[\s\S]*\}/)
+          if (jsonMatch) {
+            parsedFromSummary = JSON.parse(jsonMatch[0])
+          }
+        } catch (_) {
+          // not valid JSON, keep as is
+        }
+      }
+
+      if (parsedFromSummary) {
+        insight = {
+          ...insight,
+          summary: typeof parsedFromSummary.summary === 'string'
+            ? parsedFromSummary.summary
+            : String(insight.summary).substring(0, 300),
+          interests: Array.isArray(parsedFromSummary.interests) ? parsedFromSummary.interests : insight.interests,
+          objections: Array.isArray(parsedFromSummary.objections) ? parsedFromSummary.objections : insight.objections,
+          commitments: Array.isArray(parsedFromSummary.commitments) ? parsedFromSummary.commitments : insight.commitments,
+          nextActions: Array.isArray(parsedFromSummary.nextActions) ? parsedFromSummary.nextActions : insight.nextActions,
+          progressSignals: Array.isArray(parsedFromSummary.progressSignals) ? parsedFromSummary.progressSignals : insight.progressSignals,
+          riskSignals: Array.isArray(parsedFromSummary.riskSignals) ? parsedFromSummary.riskSignals : insight.riskSignals,
+        }
+      }
+    }
+  }
 
   return (
     <div className="bg-[#f5f8fa] min-h-screen">
@@ -157,383 +210,260 @@ export default async function ConversationDetailPage({
       </div>
 
       {/* Main Content */}
-      <div className="max-w-[1600px] mx-auto px-6 py-6">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Left Column: Main Content */}
-          <div className="xl:col-span-2 space-y-6">
-            {/* Transcription */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-[#001d3a] flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Transcrição
-                </h2>
-              </div>
-              <div className="prose max-w-none">
-                <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans bg-gray-50 p-4 rounded-md border border-gray-200">
-                  {conversation.transcriptionText || 'Nenhuma transcrição disponível'}
-                </pre>
-              </div>
-            </div>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        {/* Main Column (Left, 2/3) */}
+        <div className="xl:col-span-2 space-y-8">
 
-            {/* Messages */}
-            {conversation.messages && conversation.messages.length > 0 && (
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                <h2 className="text-lg font-bold text-[#001d3a] flex items-center gap-2 mb-4">
-                  <MessageSquare className="h-5 w-5" />
-                  Mensagens ({conversation.messages.length})
-                </h2>
-                <div className="space-y-4">
-                  {conversation.messages.map((message: any) => (
+          {/* AI Insights Main Block */}
+          {insight ? (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+
+              {/* Predição de sucesso */}
+              <div className="mb-6">
+                <div className="flex items-center gap-2 text-blue-600 font-semibold mb-3">
+                  <Sparkles className="w-5 h-5" />
+                  Predição de sucesso
+                  <AlertCircle className="w-4 h-4 text-gray-400" />
+                </div>
+                <div className="flex gap-1.5 mb-4">
+                  {/* Fake 4/5 dots, or we could calculate from progress signals? */}
+                  {[1, 2, 3, 4, 5].map((dot) => (
                     <div
-                      key={message.id}
-                      className="border-l-4 border-blue-500 pl-4 py-2 bg-gray-50 rounded-r-md"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold text-gray-600 uppercase">
-                          {message.type}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {formatDate(message.createdAt)}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-700">{message.content}</p>
-                    </div>
+                      key={dot}
+                      className={`w-4 h-4 rounded-full ${dot <= 4 ? 'bg-blue-600' : 'bg-gray-200'}`}
+                    />
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* Participants */}
-            {conversation.participants && conversation.participants.length > 0 && (
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                <h2 className="text-lg font-bold text-[#001d3a] flex items-center gap-2 mb-4">
-                  <User className="h-5 w-5" />
-                  Participantes
-                </h2>
-                <div className="flex flex-wrap gap-2">
-                  {conversation.participants.map((participant: string, index: number) => (
-                    <span
-                      key={index}
-                      className="px-3 py-1 bg-blue-50 text-blue-700 rounded-md text-sm font-medium"
-                    >
-                      {participant}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* AI Insights */}
-            {insight && (
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                <h2 className="text-lg font-bold text-[#001d3a] flex items-center gap-2 mb-4">
-                  <Sparkles className="h-5 w-5 text-orange-500" />
-                  Insights da IA
-                </h2>
-
-                {/* Summary */}
                 {insight.summary && (
-                  <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-                    <h3 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      Resumo Executivo
-                    </h3>
-                    <p className="text-sm text-blue-800 leading-relaxed">{insight.summary}</p>
-                  </div>
+                  <p className="text-sm text-gray-700 leading-relaxed text-justify">
+                    {insight.summary}
+                  </p>
                 )}
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Interests */}
-                  {insight.interests && Array.isArray(insight.interests) && insight.interests.length > 0 && (
-                    <div className="p-4 bg-green-50 rounded-lg border border-green-100">
-                      <h3 className="text-sm font-semibold text-green-800 mb-2 flex items-center gap-1">
-                        <TrendingUp className="h-4 w-4" />
-                        Interesses
-                      </h3>
-                      <ul className="space-y-1">
-                        {insight.interests.map((interest: string, index: number) => (
-                          <li key={index} className="text-sm text-green-700 flex items-start gap-2">
-                            <span className="text-green-400 mt-0.5">•</span>
-                            <span className="line-clamp-2">{interest}</span>
-                          </li>
-                        ))}
-                      </ul>
+              {/* Assuntos-chave */}
+              {insight.interests && Array.isArray(insight.interests) && insight.interests.length > 0 && (
+                <div className="mb-8">
+                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-4">
+                    <FileText className="w-5 h-5 text-gray-500" />
+                    Assuntos-chave
+                  </h3>
+                  <div className="bg-gray-50 p-5 rounded-xl border border-gray-100 text-sm xl:text-base text-gray-700">
+                    <ul className="list-disc pl-5 space-y-2">
+                      {insight.interests.map((interest: string, index: number) => (
+                        <li key={index}>{interest}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* Specific information */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-4">
+                  <FileText className="w-5 h-5 text-gray-500" />
+                  Specific information
+                </h3>
+
+                <div className="space-y-4">
+                  {/* Dores dos clientes */}
+                  {insight.riskSignals && Array.isArray(insight.riskSignals) && insight.riskSignals.length > 0 && (
+                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                        <h4 className="font-semibold text-gray-700 text-sm">Dores dos clientes / Sinais de Risco</h4>
+                      </div>
+                      <div className="p-4 bg-white">
+                        <ul className="list-disc pl-5 text-sm text-gray-600 space-y-2">
+                          {insight.riskSignals.map((signal: any, index: number) => (
+                            <li key={index}>
+                              <span className="font-medium">{signal.signal}</span>
+                              <span className="text-gray-400 ml-2 text-xs">(Risco: {signal.severity})</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   )}
 
-                  {/* Objections */}
+                  {/* Objeções */}
                   {insight.objections && Array.isArray(insight.objections) && insight.objections.length > 0 && (
-                    <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-100">
-                      <h3 className="text-sm font-semibold text-yellow-800 mb-2 flex items-center gap-1">
-                        <AlertCircle className="h-4 w-4" />
-                        Objeções
-                      </h3>
-                      <ul className="space-y-1">
-                        {insight.objections.map((objection: string, index: number) => (
-                          <li key={index} className="text-sm text-yellow-700 flex items-start gap-2">
-                            <span className="text-yellow-400 mt-0.5">•</span>
-                            <span className="line-clamp-2">{objection}</span>
-                          </li>
-                        ))}
-                      </ul>
+                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                        <h4 className="font-semibold text-gray-700 text-sm">Objeções</h4>
+                      </div>
+                      <div className="p-4 bg-white">
+                        <ul className="list-disc pl-5 text-sm text-gray-600 space-y-2">
+                          {insight.objections.map((objection: string, index: number) => (
+                            <li key={index}>{objection}</li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   )}
 
-                  {/* Commitments */}
-                  {insight.commitments && Array.isArray(insight.commitments) && insight.commitments.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1">
-                        <CheckCircle2 className="h-4 w-4 text-blue-500" />
-                        Compromissos
-                      </h3>
-                      <ul className="space-y-1">
-                        {insight.commitments.map((commitment: string, index: number) => (
-                          <li key={index} className="text-sm text-gray-600 flex items-center gap-1">
-                            <ArrowRight className="h-3 w-3 text-blue-500" />
-                            {commitment}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Next Actions */}
-                  {insight.nextActions && Array.isArray(insight.nextActions) && insight.nextActions.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1">
-                        <ArrowRight className="h-4 w-4 text-orange-500" />
-                        Próximas Ações
-                      </h3>
-                      <ul className="space-y-1">
-                        {insight.nextActions.map((action: string, index: number) => (
-                          <li key={index} className="text-sm text-gray-600 flex items-center gap-1">
-                            <ArrowRight className="h-3 w-3 text-orange-500" />
-                            {action}
-                          </li>
-                        ))}
-                      </ul>
+                  {/* Sinais de Progresso */}
+                  {insight.progressSignals && Array.isArray(insight.progressSignals) && insight.progressSignals.length > 0 && (
+                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                      <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                        <h4 className="font-semibold text-gray-700 text-sm">Sinais de Progresso</h4>
+                      </div>
+                      <div className="p-4 bg-white">
+                        <ul className="list-disc pl-5 text-sm text-gray-600 space-y-2">
+                          {insight.progressSignals.map((signal: any, index: number) => (
+                            <li key={index}>{signal.signal}</li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   )}
                 </div>
-
-                {/* Progress Signals */}
-                {insight.progressSignals && Array.isArray(insight.progressSignals) && insight.progressSignals.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1">
-                      <TrendingUp className="h-4 w-4 text-green-500" />
-                      Sinais de Progresso
-                    </h3>
-                    <div className="space-y-2">
-                      {insight.progressSignals.map((signal: any, index: number) => (
-                        <div key={index} className="p-2 bg-green-50 rounded border border-green-200">
-                          <p className="text-sm text-green-800">{signal.signal}</p>
-                          {signal.confidence && (
-                            <p className="text-xs text-green-600 mt-1">
-                              Confiança: {Math.round(signal.confidence * 100)}%
-                            </p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Risk Signals */}
-                {insight.riskSignals && Array.isArray(insight.riskSignals) && insight.riskSignals.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1">
-                      <AlertCircle className="h-4 w-4 text-red-500" />
-                      Sinais de Risco
-                    </h3>
-                    <div className="space-y-2">
-                      {insight.riskSignals.map((signal: any, index: number) => (
-                        <div
-                          key={index}
-                          className={`p-2 rounded border ${
-                            signal.severity === 'high'
-                              ? 'bg-red-50 border-red-200'
-                              : signal.severity === 'medium'
-                                ? 'bg-yellow-50 border-yellow-200'
-                                : 'bg-orange-50 border-orange-200'
-                          }`}
-                        >
-                          <p
-                            className={`text-sm ${
-                              signal.severity === 'high'
-                                ? 'text-red-800'
-                                : signal.severity === 'medium'
-                                  ? 'text-yellow-800'
-                                  : 'text-orange-800'
-                            }`}
-                          >
-                            {signal.signal}
-                          </p>
-                          <p
-                            className={`text-xs mt-1 ${
-                              signal.severity === 'high'
-                                ? 'text-red-600'
-                                : signal.severity === 'medium'
-                                  ? 'text-yellow-600'
-                                  : 'text-orange-600'
-                            }`}
-                          >
-                            Severidade: {signal.severity === 'high' ? 'Alta' : signal.severity === 'medium' ? 'Média' : 'Baixa'}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
-            )}
+
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center text-gray-500">
+              Nenhum insight de IA foi gerado para esta conversa ainda.
+            </div>
+          )}
+
+          {/* Transcrição em formato unificado abaixo */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+            <h2 className="text-lg font-bold text-[#001d3a] flex items-center gap-2 mb-4">
+              <MessageSquare className="h-5 w-5 text-gray-400" />
+              Transcrição Original
+            </h2>
+            <div className="prose max-w-none">
+              <pre className="whitespace-pre-wrap text-sm text-gray-600 font-sans bg-gray-50/50 p-6 rounded-xl border border-gray-100">
+                {conversation.transcriptionText || 'Nenhuma transcrição disponível.'}
+              </pre>
+            </div>
           </div>
 
-          {/* Right Column: Sidebar */}
-          <div className="xl:col-span-1 space-y-6">
-            {/* Contact Info */}
-            {conversation.contact && (
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">
-                  Contato
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <Link
-                      href={`/dashboard/contacts/${conversation.contact.id}`}
-                      className="text-base font-semibold text-[#0091ae] hover:underline flex items-center gap-2"
-                    >
-                      <User className="h-4 w-4" />
-                      {conversation.contact.name || 'Sem nome'}
-                    </Link>
-                    {conversation.contact.email && (
-                      <p className="text-sm text-gray-500 mt-1">{conversation.contact.email}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+        </div>
 
-            {/* Deal Info */}
-            {conversation.deal && (
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">
-                  Negócio
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <Link
-                      href={`/dashboard/deals/${conversation.deal.id}`}
-                      className="text-base font-semibold text-[#0091ae] hover:underline flex items-center gap-2"
-                    >
-                      <Target className="h-4 w-4" />
-                      {conversation.deal.title}
-                    </Link>
-                    {conversation.deal.value && (
-                      <p className="text-sm text-gray-500 mt-1">
-                        {new Intl.NumberFormat('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL',
-                        }).format(Number(conversation.deal.value))}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+        {/* Sidebar Column (Right, 1/3) */}
+        <div className="xl:col-span-1 space-y-6">
 
-            {/* Processing Status */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+          {/* Participants Box (Top Right in the image) */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 max-h-[400px] overflow-y-auto">
+            <h3 className="text-md font-bold text-gray-900 flex items-center justify-between mb-4">
+              <span className="flex items-center gap-2">
+                <User className="w-5 h-5 text-gray-500" />
+                Participantes
+              </span>
+              <span className="text-xs bg-gray-100 px-2 py-1 rounded-full text-gray-600">
+                {conversation.participants?.length || 0} na call
+              </span>
+            </h3>
+            <div className="space-y-4">
+              {conversation.participants && conversation.participants.length > 0 ? (
+                conversation.participants.map((participant: string, index: number) => {
+                  // Mocking some time and avatar since it's just a name string usually
+                  const initials = participant.substring(0, 2).toUpperCase()
+                  return (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm">
+                          {initials}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">{participant}</p>
+                          <p className="text-xs text-gray-500">Participante</p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                <p className="text-sm text-gray-500">Nenhum participante identificado.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Compromissos Box */}
+          {insight && (insight.commitments?.length > 0 || insight.nextActions?.length > 0) && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sticky top-6">
+              <h3 className="text-md font-bold text-gray-900 flex items-center gap-2 mb-4 border-b border-gray-100 pb-4">
+                <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                Compromissos
+              </h3>
+
+              <div className="space-y-3 mb-6">
+                {/* Combina Compromissos e Next Actions */}
+                {Array.from(new Set([
+                  ...(insight.commitments || []),
+                  ...(insight.nextActions || [])
+                ])).map((item: any, idx: number) => (
+                  <label key={idx} className="flex items-start gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors group">
+                    <input type="checkbox" className="mt-1 flex-shrink-0 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                    <span className="text-sm text-gray-700 leading-tight block group-hover:text-blue-900">{item}</span>
+                  </label>
+                ))}
+              </div>
+
+              <CreateActionsButton
+                conversationId={conversation.id}
+                hasDeal={!!conversation.dealId}
+                hasNextActions={true}
+              />
+            </div>
+          )}
+
+          {/* Processamento - Info Técnica */}
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">
+              IA & Processamento
+            </h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Status</span>
+                {getStatusBadge(conversation.processingStatus || 'PENDING')}
+              </div>
+              {conversation.processingStatus === 'PENDING' && (
+                <p className="text-xs text-yellow-700 bg-yellow-50 p-2 rounded">
+                  Aguardando processamento...
+                </p>
+              )}
+              {conversation.processingStatus === 'FAILED' && (
+                <p className="text-xs text-red-700 bg-red-50 p-2 rounded">
+                  Falha ao analisar a conversa.
+                </p>
+              )}
+              <RetryButton
+                conversationId={conversation.id}
+                status={conversation.processingStatus || 'PENDING'}
+              />
+            </div>
+          </div>
+
+          {/* Deal Info */}
+          {conversation.deal && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
               <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">
-                Status do Processamento
+                Negócio
               </h3>
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Status</span>
-                  {getStatusBadge(conversation.processingStatus || 'PENDING')}
+                <div>
+                  <Link
+                    href={`/dashboard/deals/${conversation.deal.id}`}
+                    className="text-base font-semibold text-[#0091ae] hover:underline flex items-center gap-2"
+                  >
+                    <Target className="h-4 w-4" />
+                    {conversation.deal.title}
+                  </Link>
+                  {conversation.deal.value && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      {new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL',
+                      }).format(Number(conversation.deal.value))}
+                    </p>
+                  )}
                 </div>
-                {conversation.processingStatus === 'PENDING' && (
-                  <div className="flex items-start gap-2 p-3 bg-yellow-50 rounded-md border border-yellow-200">
-                    <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-semibold text-yellow-800">
-                        Aguardando processamento
-                      </p>
-                      <p className="text-xs text-yellow-700 mt-1">
-                        A conversa será processada pela IA em breve.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {conversation.processingStatus === 'PROCESSING' && (
-                  <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-md border border-blue-200">
-                    <Clock className="h-4 w-4 text-blue-600 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-semibold text-blue-800">Processando</p>
-                      <p className="text-xs text-blue-700 mt-1">
-                        A IA está analisando a conversa...
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {conversation.processingStatus === 'COMPLETED' && (
-                  <div className="flex items-start gap-2 p-3 bg-green-50 rounded-md border border-green-200">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-semibold text-green-800">Processado</p>
-                      <p className="text-xs text-green-700 mt-1">
-                        Insights gerados com sucesso.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {conversation.processingStatus === 'FAILED' && (
-                  <div className="flex items-start gap-2 p-3 bg-red-50 rounded-md border border-red-200">
-                    <XCircle className="h-4 w-4 text-red-600 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-semibold text-red-800">Falha no processamento</p>
-                      <p className="text-xs text-red-700 mt-1">
-                        Ocorreu um erro ao processar a conversa.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Botão de Reenviar */}
-                <RetryButton
-                  conversationId={conversation.id}
-                  status={conversation.processingStatus || 'PENDING'}
-                />
               </div>
             </div>
+          )}
 
-            {/* Metadata */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-              <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-4">
-                Informações
-              </h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Criado em</span>
-                  <span className="text-gray-900 font-medium">
-                    {formatDate(conversation.createdAt)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Atualizado em</span>
-                  <span className="text-gray-900 font-medium">
-                    {formatDate(conversation.updatedAt)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Origem</span>
-                  <span className="text-gray-900 font-medium uppercase">
-                    {conversation.source}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

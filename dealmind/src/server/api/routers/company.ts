@@ -56,7 +56,7 @@ export const companyRouter = createTRPCRouter({
             select: { id: true, name: true, email: true },
           },
           _count: {
-            select: { contacts: true, tickets: true },
+            select: { contacts: true, tickets: true, users: true },
           },
         },
       });

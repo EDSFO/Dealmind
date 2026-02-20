@@ -2,6 +2,17 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(req: NextRequest) {
+  // Protected routes - require authentication
+  const protectedRoutes = ['/dashboard', '/admin', '/conversations', '/team']
+  const isProtectedRoute = protectedRoutes.some(route => req.nextUrl.pathname.startsWith(route))
+
+  // Fast path: public routes bypass Supabase session lookup
+  if (!isProtectedRoute) {
+    return NextResponse.next({
+      request: req,
+    })
+  }
+
   let supabaseResponse = NextResponse.next({
     request: req,
   })
@@ -33,21 +44,9 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
-  // Protected routes - require authentication
-  const protectedRoutes = ['/dashboard', '/admin', '/conversations', '/team']
-  const isProtectedRoute = protectedRoutes.some(route => req.nextUrl.pathname.startsWith(route))
-  const isAuthRoute = req.nextUrl.pathname.startsWith('/login') ||
-    req.nextUrl.pathname.startsWith('/register') ||
-    req.nextUrl.pathname.startsWith('/auth')
-
   // Redirect unauthenticated users from protected routes
   if (!session && isProtectedRoute) {
     return NextResponse.redirect(new URL('/login', req.url))
-  }
-
-  // Redirect authenticated users from auth routes
-  if (session && isAuthRoute) {
-    return NextResponse.redirect(new URL('/dashboard', req.url))
   }
 
   // Forward tenant_id and role to request headers for API routes

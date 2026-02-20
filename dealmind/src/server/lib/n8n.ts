@@ -183,6 +183,10 @@ export async function sendToN8N(data: {
   };
 
   const payloadString = JSON.stringify(payload);
+  if (!env.N8N_WEBHOOK_URL || !env.N8N_WEBHOOK_SECRET) {
+    throw new Error("N8N webhook is not configured");
+  }
+
   const signature = generateSignature(payloadString, env.N8N_WEBHOOK_SECRET);
 
   console.log("[N8N] Sending webhook for conversation:", conversationId);

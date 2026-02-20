@@ -15,7 +15,6 @@ export default async function NewDealPage() {
 
   // Create tRPC caller
   const ctx = await createTRPCContext({
-    supabase,
     headers: new Headers(),
   })
   const caller = createCaller(ctx)
@@ -124,15 +123,16 @@ export default async function NewDealPage() {
                       <select
                         id="stage"
                         name="stage"
-                        defaultValue="LEAD"
+                        defaultValue="lead"
                         className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                       >
-                        <option value="LEAD">Lead</option>
-                        <option value="QUALIFICATION">Qualificação</option>
-                        <option value="PROPOSAL">Proposta</option>
-                        <option value="NEGOTIATION">Negociação</option>
-                        <option value="CLOSED_WON">Ganho</option>
-                        <option value="CLOSED_LOST">Perdido</option>
+                        <option value="lead">Lead</option>
+                        <option value="qualification">Qualificação</option>
+                        <option value="proposal">Proposta</option>
+                        <option value="negotiation">Negociação</option>
+                        <option value="contracting">Contratação</option>
+                        <option value="closed_won">Ganho</option>
+                        <option value="closed_lost">Perdido</option>
                       </select>
                     </div>
                   </div>
@@ -180,7 +180,7 @@ export default async function NewDealPage() {
                       <option value="">Selecione um contato...</option>
                       {contacts.map((contact) => (
                         <option key={contact.id} value={contact.id}>
-                          {contact.name} {contact.email ? `(${contact.email})` : ''}
+                          {[contact.firstName, contact.lastName].filter(Boolean).join(' ') || contact.name || 'Sem nome'} {contact.email ? `(${contact.email})` : ''}
                         </option>
                       ))}
                     </select>

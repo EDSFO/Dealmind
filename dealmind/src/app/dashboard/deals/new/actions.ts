@@ -15,7 +15,7 @@ export async function createDeal(formData: FormData) {
   const title = formData.get('title') as string
   const description = formData.get('description') as string | null
   const value = parseFloat(formData.get('value') as string)
-  const stage = formData.get('stage') as string
+  const stageKey = formData.get('stage') as string
   const priority = formData.get('priority') as string
   const contactId = formData.get('contactId') as string | null
   const expectedClose = formData.get('expectedClose') as string | null
@@ -29,26 +29,31 @@ export async function createDeal(formData: FormData) {
   const { createTRPCContext } = await import('~/server/api/trpc')
 
   const ctx = await createTRPCContext({
-    supabase,
     headers: new Headers(),
   })
   const caller = createCaller(ctx)
 
   try {
+    let stageId: string | undefined
+    if (stageKey) {
+      const stage = await caller.pipelineStage.byKey({ key: stageKey })
+      stageId = stage?.id
+    }
+
     const deal = await caller.deal.create({
       title,
-      description: description || null,
+      description: description || undefined,
       value,
-      stage: stage as any,
+      stageId,
       priority: priority as any,
-      contactId: contactId || null,
-      expectedClose: expectedClose ? new Date(expectedClose) : null,
+      contactId: contactId || undefined,
+      expectedClose: expectedClose ? new Date(expectedClose) : undefined,
     })
 
     revalidatePath('/dashboard/deals')
     redirect(`/dashboard/deals/${deal.id}`)
   } catch (error) {
     console.error('Error creating deal:', error)
-    return { error: 'Failed to create deal' }
+    redirect('/dashboard/deals/new?error=true')
   }
 }

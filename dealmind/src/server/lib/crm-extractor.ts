@@ -1,4 +1,4 @@
-import { PrismaClient } from "../generated/prisma/index.js";
+import { PrismaClient } from "../../../generated/prisma";
 
 /**
  * Process extracted data from conversation and create/update CRM records
@@ -99,6 +99,8 @@ export async function processExtractedData(
   }
 
   const { company, contact, deal } = extractedData;
+  const companyData = company ?? {};
+  const dealData = deal ?? {};
 
   // MINIMUM REQUIREMENTS: Need company name OR contact firstName
   const hasCompanyName = company?.name && company.name.trim().length > 0;
@@ -244,7 +246,7 @@ export async function processExtractedData(
         if (contact.department && !existingContact.department) updateData.department = contact.department;
         if (contact.linkedinUrl && !existingContact.linkedinUrl) updateData.linkedinUrl = contact.linkedinUrl;
         if (companyId && !existingContact.companyId) updateData.companyId = companyId;
-        if (companyId && !existingContact.company) updateData.company = company.name || null;
+        if (companyId && !existingContact.company) updateData.company = companyData.name || null;
 
         if (Object.keys(updateData).length > 0) {
           await db.contact.update({
@@ -273,7 +275,7 @@ export async function processExtractedData(
             department: contact.department || null,
             linkedinUrl: contact.linkedinUrl || null,
             companyId: companyId || null,
-            company: companyId ? company.name || null : null,
+            company: companyId ? companyData.name || null : null,
             source: "CONVERSATION", // Indicates this contact came from a conversation
             status: "LEAD",
             lastContactAt: new Date(),
@@ -285,7 +287,7 @@ export async function processExtractedData(
 
     // 3. Create Deal if we have meaningful data
     const dealTitle =
-      deal?.title || (hasCompanyName ? `Oportunidade - ${company!.name}` : undefined);
+      dealData.title || (hasCompanyName ? `Oportunidade - ${companyData.name}` : undefined);
 
     if (dealTitle && contactId) {
       // Get default pipeline stage for tenant
@@ -316,17 +318,17 @@ export async function processExtractedData(
 
         // Update existing deal with new data
         const dealUpdateData: any = {};
-        if (deal.value) dealUpdateData.value = deal.value;
-        if (deal.currency) dealUpdateData.currency = deal.currency;
-        if (deal.expectedClose) {
-          dealUpdateData.expectedClose = new Date(deal.expectedClose);
+        if (dealData.value) dealUpdateData.value = dealData.value;
+        if (dealData.currency) dealUpdateData.currency = dealData.currency;
+        if (dealData.expectedClose) {
+          dealUpdateData.expectedClose = new Date(dealData.expectedClose);
         }
-        if (deal.clientProblem) dealUpdateData.clientProblem = deal.clientProblem;
-        if (deal.opportunityReason) dealUpdateData.opportunityReason = deal.opportunityReason;
-        if (deal.sourceChannel) dealUpdateData.sourceChannel = deal.sourceChannel;
-        if (deal.marketSegment) dealUpdateData.marketSegment = deal.marketSegment;
-        if (deal.productSolution) dealUpdateData.productSolution = deal.productSolution;
-        if (deal.quantity !== undefined) dealUpdateData.quantity = deal.quantity;
+        if (dealData.clientProblem) dealUpdateData.clientProblem = dealData.clientProblem;
+        if (dealData.opportunityReason) dealUpdateData.opportunityReason = dealData.opportunityReason;
+        if (dealData.sourceChannel) dealUpdateData.sourceChannel = dealData.sourceChannel;
+        if (dealData.marketSegment) dealUpdateData.marketSegment = dealData.marketSegment;
+        if (dealData.productSolution) dealUpdateData.productSolution = dealData.productSolution;
+        if (dealData.quantity !== undefined) dealUpdateData.quantity = dealData.quantity;
         if (companyId && !dealUpdateData.companyId) dealUpdateData.companyId = companyId;
 
         if (Object.keys(dealUpdateData).length > 0) {
@@ -343,18 +345,18 @@ export async function processExtractedData(
             ownerId: userId,
             contactId,
             title: dealTitle,
-            value: deal?.value ? String(deal.value) : "0",
-            currency: deal?.currency || "BRL",
+            value: dealData.value ? String(dealData.value) : "0",
+            currency: dealData.currency || "BRL",
             stageId: defaultStage.id,
             probability: defaultStage.probability || 0,
-            clientProblem: deal?.clientProblem || null,
-            opportunityReason: deal?.opportunityReason || null,
-            sourceChannel: deal?.sourceChannel || null,
-            marketSegment: deal?.marketSegment || null,
-            productSolution: deal?.productSolution || null,
-            quantity: deal?.quantity || null,
-            ...(deal?.expectedClose && {
-              expectedClose: new Date(deal.expectedClose),
+            clientProblem: dealData.clientProblem || null,
+            opportunityReason: dealData.opportunityReason || null,
+            sourceChannel: dealData.sourceChannel || null,
+            marketSegment: dealData.marketSegment || null,
+            productSolution: dealData.productSolution || null,
+            quantity: dealData.quantity || null,
+            ...(dealData.expectedClose && {
+              expectedClose: new Date(dealData.expectedClose),
             }),
             ...(companyId && { companyId }),
           },

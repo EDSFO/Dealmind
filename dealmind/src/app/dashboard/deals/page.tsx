@@ -39,7 +39,9 @@ export default async function DealsPage() {
   }
 
   const totalValue = deals.reduce((sum: number, deal: any) => sum + Number(deal.value), 0)
-  const openDealsValue = deals.filter((d: any) => d.stage !== 'CLOSED_WON' && d.stage !== 'CLOSED_LOST').reduce((sum: number, d: any) => sum + Number(d.value), 0)
+  const openDealsValue = deals
+    .filter((d: any) => d.stage?.key !== 'closed_won' && d.stage?.key !== 'closed_lost')
+    .reduce((sum: number, d: any) => sum + Number(d.value), 0)
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-64px)] overflow-hidden">

@@ -33,7 +33,6 @@ export async function createManualConversation(formData: FormData) {
   const { createTRPCContext } = await import('~/server/api/trpc')
 
   const ctx = await createTRPCContext({
-    supabase,
     headers: new Headers(),
   })
   const caller = createCaller(ctx)

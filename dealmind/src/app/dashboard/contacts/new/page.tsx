@@ -138,14 +138,14 @@ export default async function NewContactPage() {
                       className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     >
                       <option value="">Selecione...</option>
-                      <option value="website">Website</option>
-                      <option value="linkedin">LinkedIn</option>
-                      <option value="instagram">Instagram</option>
-                      <option value="indicação">Indicação</option>
-                      <option value="evento">Evento</option>
-                      <option value="campanha">Campanha</option>
-                      <option value="frio">Cold Outreach</option>
-                      <option value="outro">Outro</option>
+                      <option value="WEBSITE">Website</option>
+                      <option value="SOCIAL_MEDIA">LinkedIn</option>
+                      <option value="SOCIAL_MEDIA">Instagram</option>
+                      <option value="REFERRAL">Indicação</option>
+                      <option value="EVENT">Evento</option>
+                      <option value="ADVERTISING">Campanha</option>
+                      <option value="OUTBOUND">Cold Outreach</option>
+                      <option value="OTHER">Outro</option>
                     </select>
                   </div>
 

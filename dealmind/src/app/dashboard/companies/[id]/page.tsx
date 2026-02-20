@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { api } from '~/trpc/react'
 
-export default function EditCompanyPage({ params }: { params: { id: string } }) {
+export default function EditCompanyPage() {
   const router = useRouter()
-  const companyId = params.id
+  const params = useParams<{ id: string }>()
+  const companyId = params.id ?? ''
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -33,10 +34,11 @@ export default function EditCompanyPage({ params }: { params: { id: string } }) 
     },
   })
 
-  // Preencher nome quando carregar
-  if (company && !name) {
-    setName(company.name)
-  }
+  useEffect(() => {
+    if (company?.name) {
+      setName(company.name)
+    }
+  }, [company?.name])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
