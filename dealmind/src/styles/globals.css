@@ -1,23 +1,35 @@
 @import "tailwindcss";
 
 @theme {
-  /* HubSpot Inspired Color Palette */
-  --color-hubspot-blue: #001d3a;
-  --color-hubspot-dark: #00142c;
-  --color-hubspot-orange: #ff5c35;
-  --color-hubspot-orange-dark: #e04d2b;
-  --color-hubspot-bg: #f5f8fa;
-  --color-hubspot-border: #cbd6e2;
-  --color-hubspot-text: #33475b;
-  --color-hubspot-link: #0091ae;
+  /* Luminous Design System - Dark Theme */
+  --color-bg-primary: #050505;
+  --color-bg-secondary: #0a0a0a;
+  --color-bg-card: #0f0f0f;
+  --color-bg-elevated: #141414;
+
+  /* Accent Colors - Luminous Orange/Gold */
+  --color-accent-primary: #f97316;
+  --color-accent-secondary: #fb923c;
+  --color-accent-glow: rgba(249, 115, 22, 0.3);
+
+  /* Text Colors */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #71717a;
+
+  /* Border Colors */
+  --color-border: #27272a;
+  --color-border-light: #3f3f46;
 
   /* Premium Gradients */
-  --bg-gradient-premium: linear-gradient(135deg, var(--color-hubspot-blue) 0%, #002d5a 100%);
-  --bg-gradient-accent: linear-gradient(135deg, var(--color-hubspot-orange) 0%, #ff7a59 100%);
+  --bg-gradient-premium: linear-gradient(135deg, #001d3a 0%, #002d5a 100%);
+  --bg-gradient-accent: linear-gradient(135deg, var(--color-accent-primary) 0%, #ff7a59 100%);
+  --bg-gradient-dark: linear-gradient(180deg, #0a0a0a 0%, #050505 100%);
 
   /* Shadows */
-  --shadow-premium: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  --shadow-premium-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-premium: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-card: 0 0 30px rgba(249, 115, 22, 0.1), inset 0 0 20px rgba(249, 115, 22, 0.05);
+  --shadow-glow: 0 0 20px rgba(249, 115, 22, 0.2);
 
   /* Fonts */
   --font-sans: "Inter", var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
@@ -25,25 +37,50 @@
 
 @layer base {
   body {
-    @apply bg-hubspot-bg text-hubspot-text antialiased;
+    @apply bg-bg-primary text-text-primary antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    background-color: var(--color-bg-primary);
+    /* Starry background effect */
+    background-image:
+      radial-gradient(1px 1px at 20px 30px, rgba(255,255,255,0.15), transparent),
+      radial-gradient(1px 1px at 40px 70px, rgba(255,255,255,0.1), transparent),
+      radial-gradient(1px 1px at 50px 160px, rgba(255,255,255,0.1), transparent),
+      radial-gradient(1.5px 1.5px at 90px 40px, rgba(255,255,255,0.12), transparent),
+      radial-gradient(1px 1px at 130px 80px, rgba(255,255,255,0.08), transparent);
+    background-size: 200px 200px;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply text-hubspot-blue font-bold tracking-tight;
+    @apply text-text-primary font-semibold tracking-tight;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply px-4 py-2 rounded-md font-semibold text-white bg-hubspot-orange hover:bg-hubspot-orange-dark shadow-sm transition-all active:scale-95;
+    @apply px-4 py-2 rounded-lg font-semibold text-white bg-accent-primary hover:bg-accent-secondary shadow-glow transition-all active:scale-95;
   }
 
   .card-premium {
-    @apply bg-white rounded-xl border border-gray-200 shadow-premium hover:shadow-premium-hover transition-all duration-300;
+    @apply bg-bg-card rounded-xl border border-border shadow-premium hover:shadow-card transition-all duration-300;
   }
 
   .glass-panel {
-    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+    @apply bg-bg-elevated/80 backdrop-blur-md border border-border/50 shadow-xl;
+  }
+
+  /* Grid background for app sections */
+  .grid-bg {
+    background-image: linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Hide scrollbar for clean UI look */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }

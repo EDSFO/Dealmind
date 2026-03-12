@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { ensureUser } from "~/server/lib/user";
+import { checkPlanLimits } from "~/server/lib/plan-limits";
 
 // Novo enum com status atualizados
 const ContactStatusSchema = z.enum(["LEAD", "QUALIFIED", "CLIENT", "INACTIVE"]);
@@ -196,6 +197,9 @@ export const contactRouter = createTRPCRouter({
       }
 
       const currentUser = await ensureUser(db, session);
+
+      // Check plan limits
+      await checkPlanLimits(currentUser.tenantId, 'contacts');
 
       if (!currentUser.tenantId) {
         throw new TRPCError({

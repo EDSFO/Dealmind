@@ -9,6 +9,7 @@ import { activityRouter } from "~/server/api/routers/activity";
 import { ticketRouter } from "~/server/api/routers/ticket";
 import { pipelineStageRouter } from "~/server/api/routers/pipeline-stage";
 import { tenantRouter } from "~/server/api/routers/tenant";
+import { subscriptionRouter } from "~/server/api/routers/subscription";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -28,6 +29,7 @@ export const appRouter = createTRPCRouter({
   ticket: ticketRouter,
   pipelineStage: pipelineStageRouter,
   tenant: tenantRouter,
+  subscription: subscriptionRouter,
 });
 
 // export type definition of API

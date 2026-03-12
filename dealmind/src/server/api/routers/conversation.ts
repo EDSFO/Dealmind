@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { ensureUser } from "~/server/lib/user";
+import { checkPlanLimits } from "~/server/lib/plan-limits";
 import { Prisma } from "../../../../generated/prisma";
 
 const MessageType = z.enum(["NOTE", "EMAIL", "CALL", "MEETING", "WHATSAPP"]);
@@ -140,6 +141,9 @@ export const conversationRouter = createTRPCRouter({
       const currentUser = await ensureUser(db, session);
       const tenantId = currentUser.tenantId;
       const userId = currentUser.id;
+
+      // Check plan limits
+      await checkPlanLimits(tenantId, 'conversations');
 
       // Se dealId fornecido, verificar se pertence ao tenant
       if (input.dealId) {

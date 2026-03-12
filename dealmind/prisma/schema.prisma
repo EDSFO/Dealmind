@@ -21,6 +21,9 @@ model Tenant {
   users         User[]
   pipelineStages PipelineStage[]
   tickets       Ticket[]
+  subscriptions Subscription[]
+  payments      Payment[]
+  plans         Plan[]
 
   @@map("tenants")
 }
@@ -312,6 +315,13 @@ model Deal {
   @@index([companyId])
   @@index([ownerId])
   @@index([stageId])
+  @@index([sourceChannel])
+  @@index([priority])
+  @@index([updatedAt])
+  @@index([wonAt])
+  @@index([tenantId, ownerId])
+  @@index([tenantId, stageId])
+  @@index([tenantId, updatedAt(sort: Desc)])
   @@map("deals")
 }
 
@@ -345,6 +355,7 @@ model Conversation {
   @@index([contactId])
   @@index([processingStatus])
   @@index([conversationDate])
+  @@index([userId, createdAt(sort: Desc)])
   @@map("conversations")
 }
 
@@ -529,4 +540,158 @@ enum ProcessingStatus {
   PROCESSING
   COMPLETED
   FAILED
+}
+
+// ============================================
+// ENUMS DE PAGAMENTO
+// ============================================
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  SUSPENDED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  RECEIVED
+  OVERDUE
+  REJECTED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  BOLETO
+  PIX
+  DEBIT_CARD
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+  WEEKLY
+}
+
+// ============================================
+// MODELOS DE PAGAMENTO
+// ============================================
+
+model Plan {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+
+  // Informações do Plano
+  name            String
+  description     String?
+  asaasPlanId    String?   @unique @map("asaas_plan_id") // ID do plano no Asaas
+
+  // Precificação
+  priceMonthly    Decimal   @db.Decimal(10, 2) @map("price_monthly")
+  priceYearly     Decimal   @db.Decimal(10, 2) @map("price_yearly")
+
+  // Limites
+  maxUsers       Int       @default(1) @map("max_users")
+  maxContacts    Int       @default(100) @map("max_contacts")
+  maxDeals       Int       @default(50) @map("max_deals")
+  maxConversations Int     @default(100) @map("max_conversations")
+  maxStorageGB   Int       @default(1) @map("max_storage_gb")
+
+  // Recursos
+  features       Json?     // Array de features enabled
+
+  // Status
+  isActive       Boolean   @default(true) @map("is_active")
+  isDefault      Boolean   @default(false) @map("is_default")
+
+  // Timestamps
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  tenant         Tenant    @relation(fields: [tenantId], references: [id])
+  subscriptions  Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  planId          String    @map("plan_id")
+  userId          String    @map("user_id") // Usuário que criou
+
+  // Informações Asaas
+  asaasId         String?   @unique @map("asaas_id") // ID da assinatura no Asaas
+  asaasCustomerId String?   @map("asaas_customer_id")
+
+  // Status
+  status          SubscriptionStatus @default(ACTIVE)
+
+  // Datas
+  startDate       DateTime  @map("start_date")
+  nextBillingDate DateTime? @map("next_billing_date")
+  cancelDate      DateTime? @map("cancel_date")
+
+  // Valor
+  amount          Decimal   @db.Decimal(10, 2)
+  billingCycle    BillingCycle @default(MONTHLY)
+
+  // Timestamps
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  tenant         Tenant    @relation(fields: [tenantId], references: [id])
+  plan           Plan      @relation(fields: [planId], references: [id])
+  payments       Payment[]
+
+  @@map("subscriptions")
+}
+
+model Payment {
+  id              String    @id @default(uuid())
+  subscriptionId  String    @map("subscription_id")
+  tenantId        String    @map("tenant_id")
+
+  // Informações Asaas
+  asaasId         String?   @unique @map("asaas_id")
+  asaasPaymentId  String?   @map("asaas_payment_id")
+
+  // Dados da Cobrança
+  amount          Decimal   @db.Decimal(10, 2)
+  netAmount       Decimal?  @db.Decimal(10, 2) @map("net_amount") // Valor líquido após taxas
+  discountAmount  Decimal?  @db.Decimal(10, 2) @map("discount_amount")
+  interestAmount  Decimal?  @db.Decimal(10, 2) @map("interest_amount")
+
+  // Método e Status
+  paymentMethod   PaymentMethod
+  status          PaymentStatus @default(PENDING)
+
+  // Datas
+  dueDate         DateTime  @map("due_date")
+  paidDate        DateTime? @map("paid_date")
+
+  // Informações extras
+  description     String?
+  invoiceUrl      String?   @map("invoice_url")
+  bankSlipUrl     String?   @map("bank_slip_url")
+  pixCode         String?   @map("pix_code")
+
+  // Identificação externa
+  externalReference String? @map("external_reference")
+
+  // Timestamps
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  tenant         Tenant      @relation(fields: [tenantId], references: [id])
+
+  @@map("payments")
 }

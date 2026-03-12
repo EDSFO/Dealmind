@@ -254,9 +254,9 @@ export const userRouter = createTRPCRouter({
       if (input.timeRange === "month") startDate.setMonth(now.getMonth() - 1);
       if (input.timeRange === "3months") startDate.setMonth(now.getMonth() - 3);
 
-      // Fetch Data
+      // Fetch Data - with limits to improve performance
       const [conversations, activities, deals] = await Promise.all([
-        // Conversations with Insights
+        // Conversations with Insights - limit to 100 most recent
         db.conversation.findMany({
           where: {
             userId: targetUserId,
@@ -265,22 +265,27 @@ export const userRouter = createTRPCRouter({
           include: {
             insight: true,
           },
+          take: 100,
+          orderBy: { createdAt: 'desc' },
         }),
-        // Activities
+        // Activities - limit to 50 most recent
         db.activity.findMany({
           where: {
             userId: targetUserId,
             createdAt: { gte: startDate },
             type: "MEETING",
           },
+          take: 50,
+          orderBy: { createdAt: 'desc' },
         }),
-        // Won Deals (for Success Prediction)
+        // Won Deals (for Success Prediction) - limit to 50
         db.deal.findMany({
           where: {
             ownerId: targetUserId,
             wonAt: { gte: startDate },
           },
           select: { value: true },
+          take: 50,
         }),
       ]);
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { ensureUser } from "~/server/lib/user";
+import { checkPlanLimits } from "~/server/lib/plan-limits";
 
 const DealPriority = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
 
@@ -32,6 +33,9 @@ export const dealRouter = createTRPCRouter({
         sourceChannel: DealSourceChannelSchema.optional(),
         priority: DealPriority.optional(),
         search: z.string().optional(),
+        // Pagination params
+        limit: z.number().min(1).max(100).default(20),
+        cursor: z.string().optional(),
       }).optional()
     )
     .query(async ({ ctx, input }) => {
@@ -79,9 +83,14 @@ export const dealRouter = createTRPCRouter({
         ];
       }
 
+      const limit = input?.limit ?? 20;
+
       const deals = await db.deal.findMany({
         where,
         orderBy: { updatedAt: "desc" },
+        take: limit + 1, // Fetch one extra to check if there's more
+        cursor: input?.cursor ? { id: input.cursor } : undefined,
+        skip: input?.cursor ? 1 : 0,
         include: {
           stage: {
             select: {
@@ -118,13 +127,27 @@ export const dealRouter = createTRPCRouter({
         },
       });
 
+      // Check if there are more results
+      let nextCursor: string | undefined = undefined;
+      const hasMore = deals.length > limit;
+
+      if (hasMore) {
+        const nextItem = deals[limit];
+        nextCursor = nextItem?.id;
+        deals.pop(); // Remove the extra item
+      }
+
       // Convert Decimal to string for JSON serialization
-      return deals.map(deal => ({
-        ...deal,
-        value: deal.value.toString(),
-        expectedClose: deal.expectedClose?.toISOString() ?? null,
-        wonAt: deal.wonAt?.toISOString() ?? null,
-      }));
+      return {
+        deals: deals.map(deal => ({
+          ...deal,
+          value: deal.value.toString(),
+          expectedClose: deal.expectedClose?.toISOString() ?? null,
+          wonAt: deal.wonAt?.toISOString() ?? null,
+        })),
+        nextCursor,
+        hasMore,
+      };
     }),
 
   // Buscar deal por ID
@@ -254,6 +277,9 @@ export const dealRouter = createTRPCRouter({
 
       const currentUser = await ensureUser(db, session);
       const tenantId = currentUser.tenantId;
+
+      // Check plan limits
+      await checkPlanLimits(tenantId, 'deals');
 
       // Validate companyId if provided
       if (input.companyId) {
